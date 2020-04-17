@@ -1,10 +1,10 @@
-
-import rmsd
-import pandas as pd
-import numpy as np
+import json
 import os
 import subprocess
-import json
+
+import numpy as np
+import pandas as pd
+import rmsd
 
 __MNDO__ = "mndo"
 __MNDO__ = os.path.expanduser(__MNDO__)
@@ -25,9 +25,9 @@ __PARAMETERS_OM2__ = {
     "N": {
         "USS": -71.93212200,
         "UPP": -57.17231900,
-        #"ZS": 2.25561400,
+        # "ZS": 2.25561400,
         "ZP": 2.25561400,
-        #"BETAS": -20.49575800,
+        # "BETAS": -20.49575800,
         "BETAP": -20.49575800,
     },
     "O": {
@@ -49,19 +49,105 @@ __ATOMLINE__ = "{:2s} {:} 0 {:} 0 {:} 0"
 
 __DEBUG__ = "jprint=7"
 
-
-__ATOMS__ = [x.strip() for x in [
-    'h ', 'he', \
-    'li', 'be', 'b ', 'c ', 'n ', 'o ', 'f ', 'ne', \
-    'na', 'mg', 'al', 'si', 'p ', 's ', 'cl', 'ar', \
-    'k ', 'ca', 'sc', 'ti', 'v ', 'cr', 'mn', 'fe', 'co', 'ni', 'cu', \
-    'zn', 'ga', 'ge', 'as', 'se', 'br', 'kr',  \
-    'rb', 'sr', 'y ', 'zr', 'nb', 'mo', 'tc', 'ru', 'rh', 'pd', 'ag', \
-    'cd', 'in', 'sn', 'sb', 'te', 'i ', 'xe',  \
-    'cs', 'ba', 'la', 'ce', 'pr', 'nd', 'pm', 'sm', 'eu', 'gd', 'tb', 'dy', \
-    'ho', 'er', 'tm', 'yb', 'lu', 'hf', 'ta', 'w ', 're', 'os', 'ir', 'pt', \
-    'au', 'hg', 'tl', 'pb', 'bi', 'po', 'at', 'rn', \
-    'fr', 'ra', 'ac', 'th', 'pa', 'u ', 'np', 'pu']]
+__ATOMS__ = [
+    x.strip()
+    for x in [
+        "h ",
+        "he",
+        "li",
+        "be",
+        "b ",
+        "c ",
+        "n ",
+        "o ",
+        "f ",
+        "ne",
+        "na",
+        "mg",
+        "al",
+        "si",
+        "p ",
+        "s ",
+        "cl",
+        "ar",
+        "k ",
+        "ca",
+        "sc",
+        "ti",
+        "v ",
+        "cr",
+        "mn",
+        "fe",
+        "co",
+        "ni",
+        "cu",
+        "zn",
+        "ga",
+        "ge",
+        "as",
+        "se",
+        "br",
+        "kr",
+        "rb",
+        "sr",
+        "y ",
+        "zr",
+        "nb",
+        "mo",
+        "tc",
+        "ru",
+        "rh",
+        "pd",
+        "ag",
+        "cd",
+        "in",
+        "sn",
+        "sb",
+        "te",
+        "i ",
+        "xe",
+        "cs",
+        "ba",
+        "la",
+        "ce",
+        "pr",
+        "nd",
+        "pm",
+        "sm",
+        "eu",
+        "gd",
+        "tb",
+        "dy",
+        "ho",
+        "er",
+        "tm",
+        "yb",
+        "lu",
+        "hf",
+        "ta",
+        "w ",
+        "re",
+        "os",
+        "ir",
+        "pt",
+        "au",
+        "hg",
+        "tl",
+        "pb",
+        "bi",
+        "po",
+        "at",
+        "rn",
+        "fr",
+        "ra",
+        "ac",
+        "th",
+        "pa",
+        "u ",
+        "np",
+        "pu",
+    ]
+]
 
 
 def convert_atom(atom, t=None):
@@ -81,7 +167,7 @@ def convert_atom(atom, t=None):
         return idx
 
     else:
-        atom = __ATOMS__[atom -1].capitalize()
+        atom = __ATOMS__[atom - 1].capitalize()
         return atom
 
 
@@ -119,9 +205,8 @@ def get_index(lines, pattern):
 
 
 def reverse_enum(L):
-    for index in reversed(range(len(L))):
+    for index in reversed(list(range(len(L)))):
         yield index, L[index]
-
 
 
 def get_rev_indexes(lines, patterns):
@@ -129,7 +214,7 @@ def get_rev_indexes(lines, patterns):
     n_patterns = len(patterns)
     i_patterns = list(range(n_patterns))
 
-    idxs = [None]*n_patterns
+    idxs = [None] * n_patterns
 
     for i, line in reverse_enum(lines):
 
@@ -155,10 +240,9 @@ def get_rev_index(lines, pattern):
 
 def execute(cmd):
 
-    popen = subprocess.Popen(cmd,
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
-        shell=True)
+    popen = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, universal_newlines=True, shell=True
+    )
 
     for stdout_line in iter(popen.stdout.readline, ""):
         yield stdout_line
@@ -238,7 +322,8 @@ def get_properties(lines):
         "CORE HAMILTONIAN MATR",
         "NUCLEAR ENERGY",
         "IONIZATION ENERGY",
-        "INPUT GEOMETRY"]
+        "INPUT GEOMETRY",
+    ]
 
     idx_keywords = get_rev_indexes(lines, keywords)
 
@@ -261,8 +346,7 @@ def get_properties(lines):
     line = line.split()
     value = line[2]
     e_nuc = float(value)
-    properties["e_nuc"] = e_nuc # ev
-
+    properties["e_nuc"] = e_nuc  # ev
 
     # eisol
     eisol = dict()
@@ -272,8 +356,7 @@ def get_properties(lines):
         line = line.split()
         atom = int(line[0])
         value = line[2]
-        eisol[atom] = float(value) # ev
-
+        eisol[atom] = float(value)  # ev
 
     # # Enthalpy of formation
     # idx_hof = get_index(lines, "SCF HEAT OF FORMATION")
@@ -290,7 +373,7 @@ def get_properties(lines):
     idx = idx_keywords[2]
     line = lines[idx]
     value = line.split()[-2]
-    e_ion = float(value) # ev
+    e_ion = float(value)  # ev
     properties["e_ion"] = e_ion
 
     # # Dipole
@@ -363,7 +446,7 @@ def get_properties(lines):
     # calculate energy
     e_iso = [eisol[a] for a in atoms]
     e_iso = np.sum(e_iso)
-    energy = (e_nuc + e_scf - e_iso)
+    energy = e_nuc + e_scf - e_iso
 
     properties["energy"] = energy
 
@@ -377,23 +460,22 @@ def get_default_params(method):
 
     """
 
-    atoms = [x.strip().upper() for x in [
-        'h ', \
-        'c ', 'n ', 'o ', 'f ',\
-        ]]
+    atoms = [x.strip().upper() for x in ["h ", "c ", "n ", "o ", "f ",]]
 
     n_atoms = len(atoms)
     method = method.upper()
-    header = "{:} 0SCF MULLIK PRECISE charge={{:}} jprint=5\n\nTITLE {{:}}".format(method)
+    header = "{:} 0SCF MULLIK PRECISE charge={{:}} jprint=5\n\nTITLE {{:}}".format(
+        method
+    )
 
-    coords = np.arange(n_atoms*3)
+    coords = np.arange(n_atoms * 3)
     coords = coords.reshape((n_atoms, 3))
     coords *= 5
 
     txt = get_input(atoms, coords, 0, "get params", header=header)
     filename = "_tmp_params.inp"
 
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         f.write(txt)
 
     molecules = run_mndo_file(filename)
@@ -412,7 +494,7 @@ def get_default_params(method):
 
         if len(line) == 0:
 
-            line = lines[idx+1]
+            line = lines[idx + 1]
             line = line.strip().split()
 
             if len(line) == 0:
@@ -431,7 +513,7 @@ def get_default_params(method):
         atom = convert_atom(atom)
         value = float(value)
 
-        if atom not in parameters.keys():
+        if atom not in list(parameters.keys()):
             parameters[atom] = {}
 
         parameters[atom][param] = value
@@ -450,7 +532,7 @@ def set_params(parameters, cwd=None):
     if cwd is not None:
         os.chdir(cwd)
 
-    f = open('fort.14', 'w')
+    f = open("fort.14", "w")
     f.write(txt)
     f.close()
 
@@ -458,7 +540,9 @@ def set_params(parameters, cwd=None):
 
 
 def load_params():
-
+    """
+    ????
+    """
 
     return
 
@@ -473,7 +557,9 @@ def dump_params(parameters):
 
     for atomtype in parameters:
         for key in parameters[atomtype]:
-            line = "{:8s} {:2s} {:15.11f}\n".format(key, atomtype, parameters[atomtype][key])
+            line = "{:8s} {:2s} {:15.11f}\n".format(
+                key, atomtype, parameters[atomtype][key]
+            )
             txt += line
 
     return txt
@@ -544,25 +630,26 @@ def test_params():
     set_params(parameters)
 
     atoms = [
-    'O',
-    'N',
-    'C',
-    'N',
-    'N',
-    'H',]
+        "O",
+        "N",
+        "C",
+        "N",
+        "N",
+        "H",
+    ]
 
     coords = [
-        [ -0.0593325887, 1.2684201211  , 0.0095178503  ],
-        [ 1.1946293712 , 1.771776509   , 0.0001229152  ],
-        [ 1.9590217387 , 0.7210517427  , -0.0128069641 ],
-        [ 1.2270421979 , -0.4479406483 , -0.0121559722 ],
-        [ 0.0119302176 , -0.1246338293 , 0.0012973737  ],
-        [ 3.0355546734 , 0.7552313348  , -0.0229864829 ],
+        [-0.0593325887, 1.2684201211, 0.0095178503],
+        [1.1946293712, 1.771776509, 0.0001229152],
+        [1.9590217387, 0.7210517427, -0.0128069641],
+        [1.2270421979, -0.4479406483, -0.0121559722],
+        [0.0119302176, -0.1246338293, 0.0012973737],
+        [3.0355546734, 0.7552313348, -0.0229864829],
     ]
 
     inptxt = get_input(atoms, coords, 0, "testfile")
 
-    f = open(filename, 'w')
+    f = open(filename, "w")
     f.write(inptxt)
     f.write(inptxt)
     f.close()
@@ -584,7 +671,6 @@ def test_params():
 
 
 def main():
-
     # # Load data
     # atoms_list, coord_list, charges, titles = load_data()
     #
@@ -624,14 +710,12 @@ def dump_default_parameters():
     for method in methods:
         parameters = get_default_params(method)
         filename = "parameters.{:}.json".format(method.lower())
-        with open(filename, 'w') as f:
+        with open(filename, "w") as f:
             json.dump(parameters, f, indent=4)
 
     return
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     main()
-
-
