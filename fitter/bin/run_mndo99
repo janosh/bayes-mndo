@@ -1,4 +1,0 @@
-#!/bin/bash
-IN=$1
-JOB=${IN%.*}
-/home/andersx/mndo_stuff/mndo99/mndo99_20121112_intel64_ifort-11.1.080_mkl-10.3.12.361 < $1
