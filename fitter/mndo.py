@@ -171,7 +171,7 @@ def convert_atom(atom, t=None):
         return atom
 
 
-def get_indexes(lines, pattern):
+def get_indices(lines, pattern):
 
     idxs = []
 
@@ -182,7 +182,7 @@ def get_indexes(lines, pattern):
     return idxs
 
 
-def get_indexes_with_stop(lines, pattern, stoppattern):
+def get_indices_with_stop(lines, pattern, stoppattern):
 
     idxs = []
 
@@ -209,7 +209,7 @@ def reverse_enum(L):
         yield index, L[index]
 
 
-def get_rev_indexes(lines, patterns):
+def get_rev_indices(lines, patterns):
 
     n_patterns = len(patterns)
     i_patterns = list(range(n_patterns))
@@ -325,7 +325,7 @@ def get_properties(lines):
         "INPUT GEOMETRY",
     ]
 
-    idx_keywords = get_rev_indexes(lines, keywords)
+    idx_keywords = get_rev_indices(lines, keywords)
 
     # SCF energy
     idx = idx_keywords[0]
@@ -350,7 +350,7 @@ def get_properties(lines):
 
     # eisol
     eisol = dict()
-    idxs = get_indexes_with_stop(lines, "EISOL", "IDENTIFICATION")
+    idxs = get_indices_with_stop(lines, "EISOL", "IDENTIFICATION")
     for idx in idxs:
         line = lines[idx]
         line = line.split()

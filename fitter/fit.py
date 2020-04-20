@@ -2,7 +2,6 @@ import argparse
 import copy
 import itertools
 import json
-import sys
 
 import joblib
 import numpy as np
@@ -10,17 +9,16 @@ import pandas as pd
 import rmsd
 import sklearn
 import sklearn.model_selection
-from numpy.linalg import norm
 from scipy.optimize import minimize
 
-from . import mndo
+import mndo
 
 cachedir = ".pycache"
 memory = joblib.Memory(cachedir, verbose=0)
 
 
 @memory.cache
-def load_data(data_file="../data/reference.csv", offset=110, query_size=100):
+def load_data(data_file="data/qm9-reference.csv", offset=110, query_size=100):
     """
     Inputs:
         data_file (str): The data_file
@@ -34,9 +32,7 @@ def load_data(data_file="../data/reference.csv", offset=110, query_size=100):
         titles: List of names for each
         reference
 
-    
     """
-
     reference = pd.read_csv(data_file)
 
     filenames = reference["name"]
@@ -48,17 +44,16 @@ def load_data(data_file="../data/reference.csv", offset=110, query_size=100):
     titles = []
 
     for filename in filenames:
-
         titles.append(filename)
         charges.append(0)
 
-        filename = f"../dataset-qm9/xyz/{filename}.xyz"
+        filename = f"data/xyz/{filename}.xyz"
         atoms, coord = rmsd.get_coordinates_xyz(filename)
 
         atoms_list.append(atoms)
         coord_list.append(coord)
 
-    atom_list = atom_list[offset : offset + query_size]
+    atoms_list = atoms_list[offset : offset + query_size]
     coord_list = coord_list[offset : offset + query_size]
     charges = charges[offset : offset + query_size]
     titles = titles[offset : offset + query_size]
@@ -153,7 +148,7 @@ TITLE {{:}}"""
 
         diff = reference_properties - calc_energies
         idxs = np.argwhere(np.isnan(diff))
-        diff[idxs] = 700.0
+        diff[idxs] = 700
 
         error = np.abs(diff)
         error = error.mean()
@@ -166,7 +161,7 @@ TITLE {{:}}"""
     def jacobian(params, dh=0.000001, debug=True):
         """
         Input:
-            
+
         """
 
         # TODO Parallelt
@@ -181,12 +176,12 @@ TITLE {{:}}"""
             dparams[i] += dh
             forward = penalty(dparams, debug=False)
 
-            dparams[i] -= 2.0 * dh
+            dparams[i] -= 2 * dh
             backward = penalty(dparams, debug=False)
 
             de = forward - backward
-            grad[i] = de / (2.0 * dh)
-            # grad.append(de / (2.0 * dh))
+            grad[i] = de / (2 * dh)
+            # grad.append(de / (2 * dh))
 
         # grad = np.array(grad)
 
@@ -199,7 +194,7 @@ TITLE {{:}}"""
     start_error = penalty(parameters_values)
     start_error_grad = jacobian(parameters_values)
 
-    quit()
+    # quit()
 
     res = minimize(
         penalty,
@@ -241,9 +236,7 @@ def learning_curve(mols_atoms, mols_coords, reference_properties, start_paramete
         train_parameters, train_error = minimize_parameters(
             train_atoms, train_coords, train_properties, start_parameters
         )
-
         print(train_parameters)
-
         quit()
 
     return
@@ -280,19 +273,19 @@ end_params = learning_curve(mols_atoms, mols_coords, ref_energies, start_params)
 
 print(end_params)
 
-quit()
+# quit()
 
-# TODO select reference
+# # TODO select reference
 
 # TODO prepare input file
 filename = "_tmp_optimizer"
-txt = mndo.get_inputs(atoms_list, coord_list, charges, titles)
-f = open(filename, "w")
-f.write(txt)
-f.close()
+# txt = mndo.get_inputs(atoms_list, coord_list, charges, titles)
+txt = mndo.get_inputs(mols_atoms, mols_coords, mols_charges, titles)
+with open(filename, "w") as file:
+    file.write(txt)
 
 # TODO prepare parameters
-parameters = np.array([-99.0, -77.0, 2.0, -32.0, 3.0,])
+parameters = np.array([-99, -77, 2, -32, 3])
 parameter_keys = [
     ["O", "USS"],
     ["O", "UPP"],
@@ -316,11 +309,11 @@ def penalty(params):
     mndo.set_params(parameter_dict)
 
     properties_list = mndo.calculate(filename)
-    calc_energies = np.array([properties["energy"] for properties in properties_list])
+    calc_energies = np.array([props["energy"] for props in properties_list])
 
     diff = ref_energies - calc_energies
     idxs = np.argwhere(np.isnan(diff))
-    diff[idxs] = 700.0
+    diff[idxs] = 700
 
     error = diff.mean()
 
