@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import rmsd
 
-__MNDO__ = "mndo"
+__MNDO__ = "mndo/mndo99_20121112_intel64_ifort-11.1.080_mkl-10.3.12.361"
 __MNDO__ = os.path.expanduser(__MNDO__)
 
 __PARAMETERS_OM2__ = {
@@ -49,112 +49,26 @@ __ATOMLINE__ = "{:2s} {:} 0 {:} 0 {:} 0"
 
 __DEBUG__ = "jprint=7"
 
+# fmt: off
 __ATOMS__ = [
-    x.strip()
-    for x in [
-        "h ",
-        "he",
-        "li",
-        "be",
-        "b ",
-        "c ",
-        "n ",
-        "o ",
-        "f ",
-        "ne",
-        "na",
-        "mg",
-        "al",
-        "si",
-        "p ",
-        "s ",
-        "cl",
-        "ar",
-        "k ",
-        "ca",
-        "sc",
-        "ti",
-        "v ",
-        "cr",
-        "mn",
-        "fe",
-        "co",
-        "ni",
-        "cu",
-        "zn",
-        "ga",
-        "ge",
-        "as",
-        "se",
-        "br",
-        "kr",
-        "rb",
-        "sr",
-        "y ",
-        "zr",
-        "nb",
-        "mo",
-        "tc",
-        "ru",
-        "rh",
-        "pd",
-        "ag",
-        "cd",
-        "in",
-        "sn",
-        "sb",
-        "te",
-        "i ",
-        "xe",
-        "cs",
-        "ba",
-        "la",
-        "ce",
-        "pr",
-        "nd",
-        "pm",
-        "sm",
-        "eu",
-        "gd",
-        "tb",
-        "dy",
-        "ho",
-        "er",
-        "tm",
-        "yb",
-        "lu",
-        "hf",
-        "ta",
-        "w ",
-        "re",
-        "os",
-        "ir",
-        "pt",
-        "au",
-        "hg",
-        "tl",
-        "pb",
-        "bi",
-        "po",
-        "at",
-        "rn",
-        "fr",
-        "ra",
-        "ac",
-        "th",
-        "pa",
-        "u ",
-        "np",
-        "pu",
-    ]
+    "h", "he",
+    "li", "be", "b", "c", "n", "o", "f", "ne",
+    "na", "mg", "al", "si", "p", "s", "cl", "ar",
+    "k", "ca", "sc", "ti", "v", "cr", "mn", "fe", "co", "ni", "cu",
+    "zn", "ga", "ge", "as", "se", "br", "kr",
+    "rb", "sr", "y", "zr", "nb", "mo", "tc", "ru", "rh", "pd", "ag",
+    "cd", "in", "sn", "sb", "te", "i", "xe",
+    "cs", "ba", "la", "ce", "pr", "nd", "pm", "sm", "eu", "gd", "tb", "dy",
+    "ho", "er", "tm", "yb", "lu", "hf", "ta", "w", "re", "os", "ir", "pt",
+    "au", "hg", "tl", "pb", "bi", "po", "at", "rn",
+    "fr", "ra", "ac", "th", "pa", "u", "np", "pu"
 ]
+# fmt: on
 
 
 def convert_atom(atom, t=None):
     """
-
     convert atom from str2int or int2str
-
     """
 
     if t is None:
@@ -238,11 +152,9 @@ def get_rev_index(lines, pattern):
     return None
 
 
-def execute(cmd):
+def execute(cmd, filename):
 
-    popen = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, universal_newlines=True, shell=True
-    )
+    popen = subprocess.Popen([cmd, "<", filename], stdout=subprocess.PIPE, universal_newlines=True, shell=True)
 
     for stdout_line in iter(popen.stdout.readline, ""):
         yield stdout_line
@@ -257,9 +169,7 @@ def execute(cmd):
 def run_mndo_file(filename):
 
     cmd = __MNDO__
-    cmd += " < " + filename
-
-    lines = execute(cmd)
+    lines = execute(cmd, filename)
 
     molecule_lines = []
 
@@ -385,7 +295,7 @@ def get_properties(lines):
     # properties["mu"] = value
 
     # # optimized coordinates
-    # i = get_rev_index(lines, 'CARTESIAN COORDINATES')
+    # i = get_rev_index(lines, "CARTESIAN COORDINATES")
     # idx_atm = 1
     # idx_x = 2
     # idx_y = 3
@@ -393,7 +303,7 @@ def get_properties(lines):
     # n_skip = 4
     #
     # if i < idx_hof:
-    #     i = get_rev_index(lines, 'X-COORDINATE')
+    #     i = get_rev_index(lines, "X-COORDINATE")
     #     idx_atm = 1
     #     idx_x = 2
     #     idx_y = 4
@@ -678,7 +588,7 @@ def main():
     #
     # # TODO Set input file
     # txt = get_inputs(atoms_list, coord_list, charges, titles)
-    # f = open("runfile.inp", 'w')
+    # f = open("runfile.inp", "w")
     # f.write(txt)
     # f.close()
 

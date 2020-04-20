@@ -2,6 +2,7 @@ import argparse
 import copy
 import itertools
 import json
+import sys
 
 import joblib
 import numpy as np
@@ -9,13 +10,13 @@ import pandas as pd
 import rmsd
 import sklearn
 import sklearn.model_selection
+from numpy.linalg import norm
 from scipy.optimize import minimize
 
 import mndo
 
 cachedir = ".pycache"
 memory = joblib.Memory(cachedir, verbose=0)
-
 
 @memory.cache
 def load_data(data_file="data/qm9-reference.csv", offset=110, query_size=100):
@@ -32,7 +33,9 @@ def load_data(data_file="data/qm9-reference.csv", offset=110, query_size=100):
         titles: List of names for each
         reference
 
+    
     """
+
     reference = pd.read_csv(data_file)
 
     filenames = reference["name"]
@@ -44,6 +47,7 @@ def load_data(data_file="data/qm9-reference.csv", offset=110, query_size=100):
     titles = []
 
     for filename in filenames:
+
         titles.append(filename)
         charges.append(0)
 
@@ -93,16 +97,14 @@ def minimize_parameters(
     n_mols = len(mols_atoms)
 
     # Select header
-    header = """{:} 1SCF MULLIK PRECISE charge={{:}} iparok=1 jprint=5
-nextmol=-1
-TITLE {{:}}"""
-
-    header = header.format(method)
+    header = (f"{method} 1SCF MULLIK PRECISE charge={{:}} iparok=1 jprint=5\n"
+               "nextmol=-1\n"
+               "TITLE {{:}}")
 
     filename = "_tmp_optimizer"
-    txt = mndo.get_inputs(
-        mols_atoms, mols_coords, np.zeros(n_mols), list(range(n_mols)), header=header
-    )
+    txt = mndo.get_inputs(mols_atoms, mols_coords, np.zeros(n_mols), 
+                            range(n_mols), header=header,)
+
     with open(filename, "w") as f:
         f.write(txt)
 
@@ -158,10 +160,9 @@ TITLE {{:}}"""
 
         return error
 
-    def jacobian(params, dh=0.000001, debug=True):
+    def jacobian(params, dh=1e-6, debug=True):
         """
         Input:
-
         """
 
         # TODO Parallelt
@@ -194,8 +195,6 @@ TITLE {{:}}"""
     start_error = penalty(parameters_values)
     start_error_grad = jacobian(parameters_values)
 
-    # quit()
-
     res = minimize(
         penalty,
         parameters_values,
@@ -217,29 +216,25 @@ TITLE {{:}}"""
 
 def learning_curve(mols_atoms, mols_coords, reference_properties, start_parameters):
 
-    fold_five = sklearn.model_selection.KFold(n_splits=5, random_state=42, shuffle=True)
-    n_items = len(mols_atoms)
-    X = list(range(n_items))
+    five_fold = sklearn.model_selection.KFold(n_splits=5, random_state=42, shuffle=True)
 
-    score = []
+    # score = []
 
-    for train_idxs, test_idxs in fold_five.split(X):
+    for train_idxs, test_idxs in five_fold.split(range(len(mols_atoms))):
 
         train_atoms = [mols_atoms[i] for i in train_idxs]
         train_coords = [mols_coords[i] for i in train_idxs]
         train_properties = reference_properties[train_idxs]
 
-        test_atoms = [mols_atoms[i] for i in test_idxs]
-        test_coords = [mols_coords[i] for i in test_idxs]
-        test_properties = reference_properties[test_idxs]
+        # test_atoms = [mols_atoms[i] for i in test_idxs]
+        # test_coords = [mols_coords[i] for i in test_idxs]
+        # test_properties = reference_properties[test_idxs]
 
-        train_parameters, train_error = minimize_parameters(
+        train_parameters, _ = minimize_parameters(
             train_atoms, train_coords, train_properties, start_parameters
         )
-        print(train_parameters)
-        quit()
 
-    return
+        print(train_parameters)
 
 
 description = """"""
@@ -273,28 +268,26 @@ end_params = learning_curve(mols_atoms, mols_coords, ref_energies, start_params)
 
 print(end_params)
 
-# quit()
-
-# # TODO select reference
+# TODO select reference
 
 # TODO prepare input file
 filename = "_tmp_optimizer"
 # txt = mndo.get_inputs(atoms_list, coord_list, charges, titles)
-txt = mndo.get_inputs(mols_atoms, mols_coords, mols_charges, titles)
+txt = mndo.get_inputs(mols_atoms, mols_coords, ref_energies, titles)
 with open(filename, "w") as file:
     file.write(txt)
 
 # TODO prepare parameters
-parameters = np.array([-99, -77, 2, -32, 3])
-parameter_keys = [
+parameters = np.array([-99, -77, 2, -32, 3,])
+param_keys = [
     ["O", "USS"],
     ["O", "UPP"],
     ["O", "ZP"],
     ["O", "BETAP"],
     ["O", "ALP"],
 ]
-parameter_dict = {}
-parameter_dict["O"] = {}
+param_dict = {}
+param_dict["O"] = {}
 
 
 # TODO calculate penalty
@@ -303,13 +296,13 @@ parameter_dict["O"] = {}
 
 def penalty(params):
 
-    for param, key in zip(params, parameter_keys):
-        parameter_dict[key[0]][key[1]] = param
+    for key, param in zip(param_keys, params):
+        param_dict[key[0]][key[1]] = param
 
-    mndo.set_params(parameter_dict)
+    mndo.set_params(param_dict)
 
     properties_list = mndo.calculate(filename)
-    calc_energies = np.array([props["energy"] for props in properties_list])
+    calc_energies = np.array([prop["energy"] for prop in properties_list])
 
     diff = ref_energies - calc_energies
     idxs = np.argwhere(np.isnan(diff))
@@ -326,7 +319,6 @@ status = minimize(
     penalty, parameters, method="L-BFGS-B", options={"maxiter": 1000, "disp": True}
 )
 
-print()
 print(status)
 
 # TODO optimize
