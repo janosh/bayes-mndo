@@ -4,6 +4,7 @@ import subprocess
 
 import numpy as np
 import pandas as pd
+
 import rmsd
 
 __MNDO__ = "mndo/mndo99_20121112_intel64_ifort-11.1.080_mkl-10.3.12.361"
@@ -154,7 +155,12 @@ def get_rev_index(lines, pattern):
 
 def execute(cmd, filename):
 
-    popen = subprocess.Popen([cmd, "<", filename], stdout=subprocess.PIPE, universal_newlines=True, shell=True)
+    popen = subprocess.Popen(
+        [cmd, "<", filename],
+        stdout=subprocess.PIPE,
+        universal_newlines=True,
+        shell=True,
+    )
 
     for stdout_line in iter(popen.stdout.readline, ""):
         yield stdout_line
@@ -169,8 +175,10 @@ def execute(cmd, filename):
 def run_mndo_file(filename):
 
     cmd = __MNDO__
+    print("run mndo for molecule set")
     lines = execute(cmd, filename)
 
+    print("mndo output")
     molecule_lines = []
 
     for line in lines:
@@ -374,9 +382,7 @@ def get_default_params(method):
 
     n_atoms = len(atoms)
     method = method.upper()
-    header = "{:} 0SCF MULLIK PRECISE charge={{:}} jprint=5\n\nTITLE {{:}}".format(
-        method
-    )
+    header = f"{method} 0SCF MULLIK PRECISE charge={{:}} jprint=5\n\nTITLE {{:}}"
 
     coords = np.arange(n_atoms * 3)
     coords = coords.reshape((n_atoms, 3))
@@ -503,33 +509,6 @@ def get_input(atoms, coords, charge, title, header=__HEADER__):
     return txt
 
 
-def load_data():
-
-    reference = "../dataset-qm9/reference.csv"
-    reference = pd.read_csv(reference)
-
-    filenames = reference["name"]
-    # energies = reference["binding energy"]
-
-    atoms_list = []
-    coord_list = []
-    charges = []
-    titles = []
-
-    for filename in filenames:
-
-        titles.append(filename)
-        charges.append(0)
-
-        filename = "../dataset-qm9/xyz/" + filename + ".xyz"
-        atoms, coord = rmsd.get_coordinates_xyz(filename)
-
-        atoms_list.append(atoms)
-        coord_list.append(coord)
-
-    return atoms_list, coord_list, charges, titles
-
-
 def test_params():
 
     parameters = {}
@@ -609,9 +588,7 @@ def main():
 
 def dump_default_parameters():
     """
-
     helper func
-
     """
 
     # dump parameters

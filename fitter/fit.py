@@ -7,19 +7,21 @@ import sys
 import joblib
 import numpy as np
 import pandas as pd
-import rmsd
 import sklearn
 import sklearn.model_selection
 from numpy.linalg import norm
 from scipy.optimize import minimize
+from tqdm import tqdm
 
 import mndo
+import rmsd
 
 cachedir = ".pycache"
 memory = joblib.Memory(cachedir, verbose=0)
 
+
 @memory.cache
-def load_data(data_file="data/qm9-reference.csv", offset=110, query_size=100):
+def load_data(data_file="data/qm9-reference.csv", offset=110, query_size=10):
     """
     Inputs:
         data_file (str): The data_file
@@ -32,8 +34,6 @@ def load_data(data_file="data/qm9-reference.csv", offset=110, query_size=100):
         charges: List of species charges for each molecule in query
         titles: List of names for each
         reference
-
-    
     """
 
     reference = pd.read_csv(data_file)
@@ -66,58 +66,66 @@ def load_data(data_file="data/qm9-reference.csv", offset=110, query_size=100):
     return atoms_list, coord_list, charges, titles, reference
 
 
-def minimize_parameters(
+ignore_keys = [
+    "DD2",
+    "DD3",
+    "PO1",
+    "PO2",
+    "PO3",
+    "PO9",
+    "HYF",
+    "CORE",
+    "EISOL",
+    "FN1",
+    "FN2",
+    "FN3",
+    "GSCAL",
+    "BETAS",
+    "ZS",
+]
+
+
+def minimize_params_scipy(
     mols_atoms,
     mols_coords,
-    reference_properties,
+    ref_energies,
     start_parameters,
     n_procs=1,
     method="PM3",
-    ignore_keys=[
-        "DD2",
-        "DD3",
-        "PO1",
-        "PO2",
-        "PO3",
-        "PO9",
-        "HYF",
-        "CORE",
-        "EISOL",
-        "FN1",
-        "FN2",
-        "FN3",
-        "GSCAL",
-        "BETAS",
-        "ZS",
-    ],
+    ignore_keys=ignore_keys,
 ):
     """
     """
 
-    n_mols = len(mols_atoms)
-
     # Select header
-    header = (f"{method} 1SCF MULLIK PRECISE charge={{:}} iparok=1 jprint=5\n"
-               "nextmol=-1\n"
-               "TITLE {{:}}")
+    header = (
+        f"{method} 1SCF MULLIK PRECISE charge={{:}} iparok=1 jprint=5\n"
+        "nextmol=-1\n"
+        "TITLE {{:}}"
+    )
 
     filename = "_tmp_optimizer"
-    txt = mndo.get_inputs(mols_atoms, mols_coords, np.zeros(n_mols), 
-                            range(n_mols), header=header,)
+    txt = mndo.get_inputs(
+        mols_atoms,
+        mols_coords,
+        np.zeros_like(mols_atoms),
+        range(len(mols_atoms)),
+        header=header,
+    )
 
     with open(filename, "w") as f:
         f.write(txt)
 
-    # Select atom parameters to optimize
-    atoms = [np.unique(atom) for atom in mols_atoms]
+    # find the species of atoms present in the batch of data
+    atoms = [np.unique(mol_atoms) for mol_atoms in mols_atoms]
     atoms = list(itertools.chain(*atoms))
     atoms = np.unique(atoms)
 
-    parameters_values = []
-    parameters_keys = []
+    param_values = []
+    param_keys = []
     parameters = {}
 
-    # Select parameters
+    # construct a dictionary of the parameters to optimise for each species
     for atom in atoms:
         atom_params = start_parameters[atom]
 
@@ -130,35 +138,44 @@ def minimize_parameters(
 
             value = atom_params[key]
             current[key] = value
-            parameters_values.append(value)
-            parameters_keys.append([atom, key])
+            param_values.append(value)
+            param_keys.append([atom, key])
 
         parameters[atom] = current
 
-    # Define penalty func
-    def penalty(params, debug=True):
+    def penalty(param_list):
+        """
+        params: dict of params for different atoms
+        ref_energies: np.array of ground truth atomic energies
+        """
+        # mndo expects params to be a dict, constructing that here
+        # because scopt.minimze requires param_list to be a list
+        params = {key[0]: {} for key in param_keys}
+        for key, param in zip(param_keys, param_list):
+            atom_type, prop = key
+            params[atom_type][prop] = param
 
-        for param, key in zip(params, parameters_keys):
-            parameters[key[0]][key[1]] = param
+        print("param_dict")
 
-        mndo.set_params(parameters)
+        mndo.set_params(params)
 
-        properties_list = mndo.calculate(filename)
-        calc_energies = np.array(
-            [properties["energy"] for properties in properties_list]
-        )
+        print("set mndo params")
 
-        diff = reference_properties - calc_energies
+        props_list = mndo.calculate(filename)
+
+        print("mndo props")
+
+        calc_energies = np.array([p["energy"] for p in props_list])
+
+        diff = ref_energies - calc_energies
         idxs = np.argwhere(np.isnan(diff))
         diff[idxs] = 700
 
-        error = np.abs(diff)
-        error = error.mean()
+        mae = np.abs(diff).mean()
 
-        if debug:
-            print(f"penalty: {error:10.2f}")
+        print(f"penalty: {mae:10.2f}")
 
-        return error
+        return mae
 
     def jacobian(params, dh=1e-6, debug=True):
         """
@@ -168,23 +185,18 @@ def minimize_parameters(
         # TODO Parallelt
 
         grad = np.zeros_like(params)
-        # grad = []
 
-        for i, p in enumerate(params):
+        for i, _ in enumerate(params):
+            params[i] += dh
+            forward = penalty(params)
 
-            dparams = copy.deepcopy(params)
-
-            dparams[i] += dh
-            forward = penalty(dparams, debug=False)
-
-            dparams[i] -= 2 * dh
-            backward = penalty(dparams, debug=False)
+            params[i] -= 2 * dh
+            backward = penalty(params)
 
             de = forward - backward
             grad[i] = de / (2 * dh)
-            # grad.append(de / (2 * dh))
 
-        # grad = np.array(grad)
+            params[i] += dh  # undo in-place changes to params for next iteration
 
         if debug:
             nm = np.linalg.norm(grad)
@@ -192,35 +204,33 @@ def minimize_parameters(
 
         return grad
 
-    start_error = penalty(parameters_values)
-    start_error_grad = jacobian(parameters_values)
-
     res = minimize(
-        penalty,
-        parameters_values,
+        penalty,  # objective function
+        param_values,  # initial condition
         method="L-BFGS-B",
         jac=jacobian,
-        options={"maxiter": 1000, "disp": True},
+        options={"maxiter": 10, "disp": True},
     )
 
-    parameters_values = res.x
-    error = penalty(parameters_values)
+    param_values = res.x
+    error = penalty(param_values)
 
-    for param, key in zip(parameters_values, parameters_keys):
+    # update parameters dictionary with values from minimizer
+    for param, key in zip(param_values, param_keys):
         parameters[key[0]][key[1]] = param
 
-    end_parameters = parameters
-
-    return end_parameters, error
+    return parameters, error
 
 
 def learning_curve(mols_atoms, mols_coords, reference_properties, start_parameters):
+    """
+    """
 
     five_fold = sklearn.model_selection.KFold(n_splits=5, random_state=42, shuffle=True)
 
     # score = []
 
-    for train_idxs, test_idxs in five_fold.split(range(len(mols_atoms))):
+    for train_idxs, _ in five_fold.split(range(len(mols_atoms))):
 
         train_atoms = [mols_atoms[i] for i in train_idxs]
         train_coords = [mols_coords[i] for i in train_idxs]
@@ -230,95 +240,84 @@ def learning_curve(mols_atoms, mols_coords, reference_properties, start_paramete
         # test_coords = [mols_coords[i] for i in test_idxs]
         # test_properties = reference_properties[test_idxs]
 
-        train_parameters, _ = minimize_parameters(
+        train_parameters, _ = minimize_params_scipy(
             train_atoms, train_coords, train_properties, start_parameters
         )
 
         print(train_parameters)
 
 
-description = """"""
+def main():
+    """
+    """
 
-parser = argparse.ArgumentParser(
-    usage="%(prog)s [options]",
-    description=description,
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-)
+    print("collect data")
 
-parser.add_argument("-f", "--format", action="store", help="", metavar="fmt")
-parser.add_argument("-s", "--settings", action="store", help="", metavar="json")
-parser.add_argument("-p", "--parameters", action="store", help="", metavar="json")
-parser.add_argument(
-    "-o", "--results_parameters", action="store", help="", metavar="json"
-)
-parser.add_argument("--methods", action="store", help="", metavar="str")
+    mols_atoms, mols_coords, mols_charges, titles, reference = load_data()
+    ref_energies = reference.iloc[:, 1].tolist()
+    ref_energies = np.array(ref_energies)
 
-args = parser.parse_args()
+    print("collect params")
 
-mols_atoms, mols_coords, mols_charges, titles, reference = load_data()
-ref_energies = reference.iloc[:, 1].tolist()
-ref_energies = np.array(ref_energies)
+    with open(args.parameters) as f:
+        start_params = f.read()
+        start_params = json.loads(start_params)
 
-with open(args.parameters) as f:
-    start_params = f.read()
-    start_params = json.loads(start_params)
+    end_params = minimize_params_scipy(
+        mols_atoms, mols_coords, ref_energies, start_params
+    )
+    # end_params = learning_curve(mols_atoms, mols_coords, ref_energies, start_params)
 
-# end_params = minimize_parameters(mols_atoms, mols_coords, ref_energies, start_params)
-end_params = learning_curve(mols_atoms, mols_coords, ref_energies, start_params)
+    # print(end_params)
 
-print(end_params)
+    # TODO select reference
 
-# TODO select reference
+    # TODO prepare input file
+    filename = "_tmp_optimizer"
+    # txt = mndo.get_inputs(atoms_list, coord_list, charges, titles)
+    txt = mndo.get_inputs(mols_atoms, mols_coords, ref_energies, titles)
+    with open(filename, "w") as file:
+        file.write(txt)
 
-# TODO prepare input file
-filename = "_tmp_optimizer"
-# txt = mndo.get_inputs(atoms_list, coord_list, charges, titles)
-txt = mndo.get_inputs(mols_atoms, mols_coords, ref_energies, titles)
-with open(filename, "w") as file:
-    file.write(txt)
+    # TODO prepare parameters
+    parameters = np.array([-99, -77, 2, -32, 3,])
+    param_keys = [
+        ["O", "USS"],
+        ["O", "UPP"],
+        ["O", "ZP"],
+        ["O", "BETAP"],
+        ["O", "ALP"],
+    ]
+    param_dict = {}
+    param_dict["O"] = {}
 
-# TODO prepare parameters
-parameters = np.array([-99, -77, 2, -32, 3,])
-param_keys = [
-    ["O", "USS"],
-    ["O", "UPP"],
-    ["O", "ZP"],
-    ["O", "BETAP"],
-    ["O", "ALP"],
-]
-param_dict = {}
-param_dict["O"] = {}
+    # TODO calculate penalty
+    # properties_list = mndo.calculate(filename)
 
+    print(penalty(parameters))
 
-# TODO calculate penalty
-# properties_list = mndo.calculate(filename)
+    status = minimize(
+        penalty, parameters, method="L-BFGS-B", options={"maxiter": 1000, "disp": True},
+    )
 
+    print(status)
 
-def penalty(params):
-
-    for key, param in zip(param_keys, params):
-        param_dict[key[0]][key[1]] = param
-
-    mndo.set_params(param_dict)
-
-    properties_list = mndo.calculate(filename)
-    calc_energies = np.array([prop["energy"] for prop in properties_list])
-
-    diff = ref_energies - calc_energies
-    idxs = np.argwhere(np.isnan(diff))
-    diff[idxs] = 700
-
-    error = diff.mean()
-
-    return error
+    # TODO optimize
 
 
-print(penalty(parameters))
+if __name__ == "__main__":
 
-status = minimize(
-    penalty, parameters, method="L-BFGS-B", options={"maxiter": 1000, "disp": True}
-)
+    parser = argparse.ArgumentParser(usage="%(prog)s [options]")
 
-print(status)
+    parser.add_argument("-f", "--format", action="store", help="", metavar="fmt")
+    parser.add_argument("-s", "--settings", action="store", help="", metavar="json")
+    parser.add_argument("-p", "--parameters", action="store", help="", metavar="json")
+    parser.add_argument(
+        "-o", "--results_parameters", action="store", help="", metavar="json"
+    )
+    parser.add_argument("-m --methods", action="store", help="", metavar="str")
 
-# TODO optimize
+    args = parser.parse_args()
+
+    main()
+    pass

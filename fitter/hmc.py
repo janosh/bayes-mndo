@@ -1,6 +1,9 @@
 # %%
 import tensorflow as tf
+
 import tensorflow_probability as tfp
+from load_data import load_data, prepare_data
+from objective import penalty
 
 
 # %%
@@ -13,6 +16,20 @@ def sample_chain(*args, **kwargs):
     https://github.com/tensorflow/probability/issues/728#issuecomment-573704750
     """
     return tfp.mcmc.sample_chain(*args, **kwargs)
+
+
+# %%
+mols_atoms, coords, charges, titles, reference = load_data()
+ref_energies = reference.iloc[:, 1].tolist()
+
+with open("parameters/parameters-pm3.json") as file:
+    start_params = json.loads(file.read())
+
+param_keys, param_values = prepare_data(mols_atoms, start_params)
+
+# %%
+def target_log_prob_fn(param_vals):
+    return -penalty(param_vals, param_keys, ref_energies, "_tmp_optimizer")
 
 
 # %%
