@@ -155,15 +155,9 @@ def minimize_params_scipy(
             atom_type, prop = key
             params[atom_type][prop] = param
 
-        print("param_dict")
-
         mndo.set_params(params)
 
-        print("set mndo params")
-
         props_list = mndo.calculate(filename)
-
-        print("mndo props")
 
         calc_energies = np.array([p["energy"] for p in props_list])
 
@@ -173,7 +167,7 @@ def minimize_params_scipy(
 
         mae = np.abs(diff).mean()
 
-        print(f"penalty: {mae:10.2f}")
+        # print(f"penalty: {mae:10.2f}")
 
         return mae
 
@@ -209,7 +203,7 @@ def minimize_params_scipy(
         param_values,  # initial condition
         method="L-BFGS-B",
         jac=jacobian,
-        options={"maxiter": 10, "disp": True},
+        options={"maxiter": 1000, "disp": True},
     )
 
     param_values = res.x
@@ -268,41 +262,41 @@ def main():
     )
     # end_params = learning_curve(mols_atoms, mols_coords, ref_energies, start_params)
 
-    # print(end_params)
+    # # print(end_params)
 
-    # TODO select reference
+    # # TODO select reference
 
-    # TODO prepare input file
-    filename = "_tmp_optimizer"
-    # txt = mndo.get_inputs(atoms_list, coord_list, charges, titles)
-    txt = mndo.get_inputs(mols_atoms, mols_coords, ref_energies, titles)
-    with open(filename, "w") as file:
-        file.write(txt)
+    # # TODO prepare input file
+    # filename = "_tmp_optimizer"
+    # # txt = mndo.get_inputs(atoms_list, coord_list, charges, titles)
+    # txt = mndo.get_inputs(mols_atoms, mols_coords, ref_energies, titles)
+    # with open(filename, "w") as file:
+    #     file.write(txt)
 
-    # TODO prepare parameters
-    parameters = np.array([-99, -77, 2, -32, 3,])
-    param_keys = [
-        ["O", "USS"],
-        ["O", "UPP"],
-        ["O", "ZP"],
-        ["O", "BETAP"],
-        ["O", "ALP"],
-    ]
-    param_dict = {}
-    param_dict["O"] = {}
+    # # TODO prepare parameters
+    # parameters = np.array([-99, -77, 2, -32, 3,])
+    # param_keys = [
+    #     ["O", "USS"],
+    #     ["O", "UPP"],
+    #     ["O", "ZP"],
+    #     ["O", "BETAP"],
+    #     ["O", "ALP"],
+    # ]
+    # param_dict = {}
+    # param_dict["O"] = {}
 
-    # TODO calculate penalty
-    # properties_list = mndo.calculate(filename)
+    # # TODO calculate penalty
+    # # properties_list = mndo.calculate(filename)
 
-    print(penalty(parameters))
+    # print(penalty(parameters))
 
-    status = minimize(
-        penalty, parameters, method="L-BFGS-B", options={"maxiter": 1000, "disp": True},
-    )
+    # status = minimize(
+    #     penalty, parameters, method="L-BFGS-B", options={"maxiter": 1000, "disp": True},
+    # )
 
-    print(status)
+    # print(status)
 
-    # TODO optimize
+    # # TODO optimize
 
 
 if __name__ == "__main__":

@@ -156,7 +156,7 @@ def get_rev_index(lines, pattern):
 def execute(cmd, filename):
 
     popen = subprocess.Popen(
-        [cmd, "<", filename],
+        f"{cmd} < {filename}",
         stdout=subprocess.PIPE,
         universal_newlines=True,
         shell=True,
@@ -173,14 +173,15 @@ def execute(cmd, filename):
 
 
 def run_mndo_file(filename):
+    """
+    """
 
     cmd = __MNDO__
-    print("run mndo for molecule set")
     lines = execute(cmd, filename)
 
-    print("mndo output")
     molecule_lines = []
 
+    # Lines is an iterator object
     for line in lines:
 
         line = line.strip()
