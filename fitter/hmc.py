@@ -2,7 +2,7 @@
 import tensorflow as tf
 
 import tensorflow_probability as tfp
-from load_data import load_data, prepare_data
+from data import load_data, prepare_data
 from objective import penalty
 
 
@@ -25,6 +25,8 @@ ref_energies = reference.iloc[:, 1].tolist()
 with open("parameters/parameters-pm3.json") as file:
     start_params = json.loads(file.read())
 
+# param_keys needed for mndo.set_params
+# param_values acts as initial condition for HMC kernel
 param_keys, param_values = prepare_data(mols_atoms, start_params)
 
 # %%
@@ -48,6 +50,6 @@ adaptive_kernel = tfp.mcmc.DualAveragingStepSizeAdaptation(
 chain, trace, final_kernel_results = sample_chain(
     kernel=adaptive_kernel,
     num_results=2000,
-    current_state=some_state,
+    current_state=param_values,
     return_final_kernel_results=True,
 )
