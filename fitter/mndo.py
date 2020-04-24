@@ -7,51 +7,8 @@ import pandas as pd
 
 import rmsd
 
-__MNDO__ = "mndo/mndo99_20121112_intel64_ifort-11.1.080_mkl-10.3.12.361"
-__MNDO__ = os.path.expanduser(__MNDO__)
-
-__PARAMETERS_OM2__ = {
-    "H": {
-        "USS": -11.90627600,
-        "ZS": 1.33196700,
-        "BETAS": -6.98906400,
-        "ALP": 2.54413410,
-    },
-    "C": {
-        "ZP": 1.78753700,
-        "BETAS": -18.98504400,
-        "BETAP": -7.93412200,
-        "ALP": 2.54638000,
-    },
-    "N": {
-        "USS": -71.93212200,
-        "UPP": -57.17231900,
-        # "ZS": 2.25561400,
-        "ZP": 2.25561400,
-        # "BETAS": -20.49575800,
-        "BETAP": -20.49575800,
-    },
-    "O": {
-        "USS": -99.64430900,
-        "UPP": -77.79747200,
-        # "ZS": 2.69990500,
-        "ZP": 2.69990500,
-        # "BETAS": -32.68808200,
-        "BETAP": -32.68808200,
-        "ALP": 3.16060400,
-    },
-}
-
-__HEADER__ = """OM2 1SCF MULLIK PRECISE charge={:} iparok=1 jprint=5
-nextmol=-1
-TITLE {:}"""
-
-__ATOMLINE__ = "{:2s} {:} 0 {:} 0 {:} 0"
-
-__DEBUG__ = "jprint=7"
-
 # fmt: off
-__ATOMS__ = [
+ATOMS = [
     "h", "he",
     "li", "be", "b", "c", "n", "o", "f", "ne",
     "na", "mg", "al", "si", "p", "s", "cl", "ar",
@@ -78,35 +35,24 @@ def convert_atom(atom, t=None):
 
     if "str" in t:
         atom = atom.lower()
-        idx = __ATOMS__.index(atom) + 1
+        idx = ATOMS.index(atom) + 1
         return idx
 
     else:
-        atom = __ATOMS__[atom - 1].capitalize()
+        atom = ATOMS[atom - 1].capitalize()
         return atom
 
 
-def get_indices(lines, pattern):
+def get_indices(lines, pattern, stop_pattern=None):
 
     idxs = []
 
     for i, line in enumerate(lines):
-        if line.find(pattern) != -1:
-            idxs.append(i)
-
-    return idxs
-
-
-def get_indices_with_stop(lines, pattern, stoppattern):
-
-    idxs = []
-
-    for i, line in enumerate(lines):
-        if line.find(pattern) != -1:
+        if pattern in line:
             idxs.append(i)
             continue
 
-        if line.find(stoppattern) != -1:
+        if stop_pattern and stop_pattern in line:
             break
 
     return idxs
@@ -114,20 +60,20 @@ def get_indices_with_stop(lines, pattern, stoppattern):
 
 def get_index(lines, pattern):
     for i, line in enumerate(lines):
-        if line.find(pattern) != -1:
+        if pattern in line:
             return i
     return None
 
 
-def reverse_enum(L):
-    for index in reversed(list(range(len(L)))):
-        yield index, L[index]
+def reverse_enum(lst):
+    for index in reversed(range(len(lst))):
+        yield index, lst[index]
 
 
 def get_rev_indices(lines, patterns):
 
     n_patterns = len(patterns)
-    i_patterns = list(range(n_patterns))
+    i_patterns = range(n_patterns)
 
     idxs = [None] * n_patterns
 
@@ -137,23 +83,26 @@ def get_rev_indices(lines, patterns):
 
             pattern = patterns[ip]
 
-            if line.find(pattern) != -1:
+            if pattern in line:
                 idxs[ip] = i
                 i_patterns.remove(ip)
 
     return idxs
 
 
-def get_rev_index(lines, pattern):
+# def get_rev_index(lines, pattern):
 
-    for i, line in reverse_enum(lines):
-        if line.find(pattern) != -1:
-            return i
+#     for i, line in reverse_enum(lines):
+#         if pattern in line:
+#             return i
 
-    return None
+#     return None
 
 
 def execute(cmd, filename):
+    """
+    Call the mndo fortran binary. Needs mndo to be in path for this function to work.
+    """
 
     popen = subprocess.Popen(
         f"{cmd} < {filename}",
@@ -174,9 +123,11 @@ def execute(cmd, filename):
 
 def run_mndo_file(filename):
     """
+    Runs mndo on the given input file and yeilds groups of lines for each
+    molecule as the program completes. 
     """
-
-    cmd = __MNDO__
+    cmd = "mndo/mndo99_20121112_intel64_ifort-11.1.080_mkl-10.3.12.361"
+    cmd = os.path.expanduser(cmd)
     lines = execute(cmd, filename)
 
     molecule_lines = []
@@ -196,34 +147,30 @@ def run_mndo_file(filename):
 
 
 def calculate(filename):
-
+    """
+    Collect sets of lines for each molecule as they become availiable
+    and then call a parser to extract the dictionary of properties.
+    """
     calculations = run_mndo_file(filename)
 
-    properties_list = []
+    props_list = []
 
-    for lines in calculations:
+    for mol_lines in calculations:
+        props = get_properties(mol_lines)
+        props_list.append(props)
 
-        # try:
-        properties = get_properties(lines)
-        properties_list.append(properties)
-        # except:
-        #     properties = {"energy": np.nan}
-        #     properties_list.append(properties)
-
-    return properties_list
+    return props_list
 
 
 def get_properties(lines):
     """
-
-    get properties of a single calculation
+    Get properties of a single calculation.
 
     arguments:
-        lines - list of MNDO output lines
+        lines: list of MNDO output lines
 
     return:
         dict of properties
-
     """
 
     # TODO UNABLE TO ACHIEVE SCF CONVERGENCE
@@ -268,8 +215,8 @@ def get_properties(lines):
     properties["e_nuc"] = e_nuc  # ev
 
     # eisol
-    eisol = dict()
-    idxs = get_indices_with_stop(lines, "EISOL", "IDENTIFICATION")
+    eisol = {}
+    idxs = get_indices(lines, "EISOL", "IDENTIFICATION")
     for idx in idxs:
         line = lines[idx]
         line = line.split()
@@ -372,24 +319,78 @@ def get_properties(lines):
     return properties
 
 
+def set_params(params, cwd=None):
+    """
+    Save the current model parameters to the mndo input file.
+    """
+    txt = ""
+
+    for atomtype in params:
+        for key in params[atomtype]:
+            txt += f"{key:8s} {atomtype:2s} {params[atomtype][key]:15.11f}\n"
+
+    if cwd is not None:
+        os.chdir(cwd)
+
+    with open("fort.14", "w") as file:
+        file.write(txt)
+
+
+def get_inputs(atoms_list, coords_list, charges, titles, method=None):
+    """
+    """
+    inptxt = ""
+    for atoms, coords, charge, title in zip(atoms_list, coords_list, charges, titles):
+        inptxt += get_input(atoms, coords, charge, title, method=method)
+
+    return inptxt
+
+
+def get_input(atoms, coords, charge, title, method=None):
+    """
+    """
+    header = (
+        f"{method or 'OM2'} 1SCF MULLIK PRECISE charge={charge} iparok=1 jprint=5\n"
+        "nextmol=-1\n"
+        f"TITLE {title}\n"
+    )
+    txt = header
+
+    for atom, coord in zip(atoms, coords):
+        line = "{:2s} {:} 0 {:} 0 {:} 0\n".format(atom, *coord)
+        txt += line
+
+    return txt + "\n"
+
+
+def dump_default_params():
+    """
+    Function takes the default parameters from different methods in mndo
+    and saves them output files. 
+    """
+    # dump parameters
+    methods = ["MNDO", "AM1", "PM3", "OM2"]
+
+    for method in methods:
+        params = get_default_params(method)
+        filename = "parameters-{:}.json".format(method.lower())
+        with open(filename, "w") as f:
+            json.dump(params, f, indent=4)
+
+
 def get_default_params(method):
     """
-
     Get the default parameters of a method
-
     """
-
-    atoms = [x.strip().upper() for x in ["h ", "c ", "n ", "o ", "f ",]]
-
+    atoms = ["H", "C", "N", "O", "F"]
+    # TODO: test if nextmol = -1 line is breaking
+    # header = f"{method} 0SCF MULLIK PRECISE charge={{:}} jprint=5\n\nTITLE {{:}}"
     n_atoms = len(atoms)
-    method = method.upper()
-    header = f"{method} 0SCF MULLIK PRECISE charge={{:}} jprint=5\n\nTITLE {{:}}"
 
-    coords = np.arange(n_atoms * 3)
-    coords = coords.reshape((n_atoms, 3))
+    coords = np.arange(n_atoms * 3).reshape((n_atoms, 3))
     coords *= 5
 
-    txt = get_input(atoms, coords, 0, "get params", header=header)
+    txt = get_input(atoms, coords, 0, "get params", method=method)
     filename = "_tmp_params.inp"
 
     with open(filename, "w") as f:
@@ -402,7 +403,7 @@ def get_default_params(method):
     idx = get_index(lines, "PARAMETER VALUES USED IN THE CALCULATION")
     idx += 4
 
-    parameters = {}
+    params = {}
 
     while True:
 
@@ -420,190 +421,22 @@ def get_default_params(method):
                 idx += 1
                 continue
 
-        atom = line[0]
-        param = line[1]
-        value = line[2]
-        unit = line[3]
-        desc = " ".join(line[4:])
+        atom, param, value = line[0], line[1], float(line[2])
+        # unit = line[3]
+        # desc = " ".join(line[4:])
 
-        atom = int(atom)
-        atom = convert_atom(atom)
-        value = float(value)
+        atom = convert_atom(int(atom))
 
-        if atom not in list(parameters.keys()):
-            parameters[atom] = {}
+        if atom not in list(params.keys()):
+            params[atom] = {}
 
-        parameters[atom][param] = value
+        params[atom][param] = value
 
         idx += 1
 
-    return parameters
-
-
-def set_params(parameters, cwd=None):
-    """
-    """
-
-    txt = dump_params(parameters)
-
-    if cwd is not None:
-        os.chdir(cwd)
-
-    f = open("fort.14", "w")
-    f.write(txt)
-    f.close()
-
-    return
-
-
-def load_params():
-    """
-    ????
-    """
-
-    return
-
-
-def dump_params(parameters):
-    """
-    """
-
-    # TODO andersx has some if-statements in his writer
-
-    txt = ""
-
-    for atomtype in parameters:
-        for key in parameters[atomtype]:
-            line = "{:8s} {:2s} {:15.11f}\n".format(
-                key, atomtype, parameters[atomtype][key]
-            )
-            txt += line
-
-    return txt
-
-
-def get_inputs(atoms_list, coords_list, charges, titles, header=__HEADER__):
-    """
-    """
-
-    inptxt = ""
-    for atoms, coords, charge, title in zip(atoms_list, coords_list, charges, titles):
-        txt = get_input(atoms, coords, charge, title, header=header)
-        inptxt += txt
-
-    return inptxt
-
-
-def get_input(atoms, coords, charge, title, header=__HEADER__):
-    """
-    """
-
-    txt = header.format(charge, title)
-    txt += "\n"
-
-    for atom, coord in zip(atoms, coords):
-        line = __ATOMLINE__.format(atom, *coord)
-        txt += line + "\n"
-
-    txt += "\n"
-
-    return txt
-
-
-def test_params():
-
-    parameters = {}
-    parameters["O"] = {}
-    parameters["O"]["USS"] = 666.0
-    filename = "_tmp_test_params"
-
-    set_params(parameters)
-
-    atoms = [
-        "O",
-        "N",
-        "C",
-        "N",
-        "N",
-        "H",
-    ]
-
-    coords = [
-        [-0.0593325887, 1.2684201211, 0.0095178503],
-        [1.1946293712, 1.771776509, 0.0001229152],
-        [1.9590217387, 0.7210517427, -0.0128069641],
-        [1.2270421979, -0.4479406483, -0.0121559722],
-        [0.0119302176, -0.1246338293, 0.0012973737],
-        [3.0355546734, 0.7552313348, -0.0229864829],
-    ]
-
-    inptxt = get_input(atoms, coords, 0, "testfile")
-
-    f = open(filename, "w")
-    f.write(inptxt)
-    f.write(inptxt)
-    f.close()
-
-    calculations = run_mndo_file(filename)
-
-    for lines in calculations:
-        properties = get_properties(lines)
-
-        idx = get_index(lines, "USS")
-        line = stdout[idx]
-        line = line.split()
-
-        value = float(line[-1])
-
-        assert value == 666.0
-
-    return
-
-
-def main():
-    # # Load data
-    # atoms_list, coord_list, charges, titles = load_data()
-    #
-    # # TODO Select data
-    #
-    # # TODO Set input file
-    # txt = get_inputs(atoms_list, coord_list, charges, titles)
-    # f = open("runfile.inp", "w")
-    # f.write(txt)
-    # f.close()
-
-    # TODO set params
-    # set_params(__PARAMETERS_OM2__)
-
-    # TODO Run calculation
-    stdout = run_mndo_file("runfile.inp")
-
-    for lines in stdout:
-        properties = get_properties(lines)
-        print(properties)
-
-    # TODO Parse properties
-
-    return
-
-
-def dump_default_parameters():
-    """
-    helper func
-    """
-
-    # dump parameters
-    methods = ["MNDO", "AM1", "PM3", "OM2"]
-
-    for method in methods:
-        parameters = get_default_params(method)
-        filename = "parameters.{:}.json".format(method.lower())
-        with open(filename, "w") as f:
-            json.dump(parameters, f, indent=4)
-
-    return
+    return params
 
 
 if __name__ == "__main__":
-
-    main()
+    print("This is just a script of functions")
+    pass

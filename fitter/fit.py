@@ -21,7 +21,7 @@ memory = joblib.Memory(cachedir, verbose=0)
 
 
 @memory.cache
-def load_data(data_file="data/qm9-reference.csv", offset=110, query_size=10):
+def load_data(data_file="data/qm9-reference.csv", offset=110, query_size=100):
     """
     Inputs:
         data_file (str): The data_file
@@ -96,21 +96,13 @@ def minimize_params_scipy(
 ):
     """
     """
-
-    # Select header
-    header = (
-        f"{method} 1SCF MULLIK PRECISE charge={{:}} iparok=1 jprint=5\n"
-        "nextmol=-1\n"
-        "TITLE {{:}}"
-    )
-
     filename = "_tmp_optimizer"
     txt = mndo.get_inputs(
         mols_atoms,
         mols_coords,
         np.zeros_like(mols_atoms),
         range(len(mols_atoms)),
-        header=header,
+        method=method,
     )
 
     with open(filename, "w") as f:
@@ -165,9 +157,10 @@ def minimize_params_scipy(
         idxs = np.argwhere(np.isnan(diff))
         diff[idxs] = 700
 
-        mae = np.abs(diff).mean()
+        err = np.abs(diff).mean()
+        err = np.abs(diff).mean()
 
-        # print(f"penalty: {mae:10.2f}")
+        # print(f"penalty: {mae:.4g}")
 
         return mae
 
@@ -194,7 +187,7 @@ def minimize_params_scipy(
 
         if debug:
             nm = np.linalg.norm(grad)
-            print(f"penalty grad: {nm:10.2f}")
+            print(f"penalty grad: {nm:.4g}")
 
         return grad
 
@@ -218,6 +211,7 @@ def minimize_params_scipy(
 
 def learning_curve(mols_atoms, mols_coords, reference_properties, start_parameters):
     """
+    cross validate the parameters
     """
 
     five_fold = sklearn.model_selection.KFold(n_splits=5, random_state=42, shuffle=True)
@@ -247,7 +241,7 @@ def main():
 
     print("collect data")
 
-    mols_atoms, mols_coords, mols_charges, titles, reference = load_data()
+    mols_atoms, mols_coords, _, _, reference = load_data()
     ref_energies = reference.iloc[:, 1].tolist()
     ref_energies = np.array(ref_energies)
 
@@ -257,46 +251,13 @@ def main():
         start_params = f.read()
         start_params = json.loads(start_params)
 
-    end_params = minimize_params_scipy(
+    end_params, error = minimize_params_scipy(
         mols_atoms, mols_coords, ref_energies, start_params
     )
     # end_params = learning_curve(mols_atoms, mols_coords, ref_energies, start_params)
 
-    # # print(end_params)
-
-    # # TODO select reference
-
-    # # TODO prepare input file
-    # filename = "_tmp_optimizer"
-    # # txt = mndo.get_inputs(atoms_list, coord_list, charges, titles)
-    # txt = mndo.get_inputs(mols_atoms, mols_coords, ref_energies, titles)
-    # with open(filename, "w") as file:
-    #     file.write(txt)
-
-    # # TODO prepare parameters
-    # parameters = np.array([-99, -77, 2, -32, 3,])
-    # param_keys = [
-    #     ["O", "USS"],
-    #     ["O", "UPP"],
-    #     ["O", "ZP"],
-    #     ["O", "BETAP"],
-    #     ["O", "ALP"],
-    # ]
-    # param_dict = {}
-    # param_dict["O"] = {}
-
-    # # TODO calculate penalty
-    # # properties_list = mndo.calculate(filename)
-
-    # print(penalty(parameters))
-
-    # status = minimize(
-    #     penalty, parameters, method="L-BFGS-B", options={"maxiter": 1000, "disp": True},
-    # )
-
-    # print(status)
-
-    # # TODO optimize
+    print(end_params)
+    print(error)
 
 
 if __name__ == "__main__":
