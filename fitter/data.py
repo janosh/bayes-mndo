@@ -1,9 +1,14 @@
-import pandas as pd
-import rmsd
 import itertools
 
+import numpy as np
+import pandas as pd
 
-def load_data(data_file="data/qm9-reference.csv", offset=110, query_size=10):
+import rmsd
+
+
+def load_data(
+    data_file="../data/qm9-reference.csv", offset=110, query_size=100,
+):
     """
     Inputs:
         data_file (str): The data_file
@@ -22,7 +27,7 @@ def load_data(data_file="data/qm9-reference.csv", offset=110, query_size=10):
     filenames = reference["name"]
 
     for filename in filenames:
-        filename = f"data/xyz/{filename}.xyz"
+        filename = f"../data/xyz/{filename}.xyz"
         atoms, coords = rmsd.get_coordinates_xyz(filename)
 
         charges.append(0)

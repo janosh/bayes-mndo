@@ -1,4 +1,6 @@
 # %%
+import json
+
 import tensorflow as tf
 
 import tensorflow_probability as tfp
@@ -22,7 +24,7 @@ def sample_chain(*args, **kwargs):
 mols_atoms, coords, charges, titles, reference = load_data()
 ref_energies = reference.iloc[:, 1].tolist()
 
-with open("parameters/parameters-pm3.json") as file:
+with open("../parameters/parameters-pm3.json") as file:
     start_params = json.loads(file.read())
 
 # param_keys needed for mndo.set_params
@@ -53,3 +55,6 @@ chain, trace, final_kernel_results = sample_chain(
     current_state=param_values,
     return_final_kernel_results=True,
 )
+
+
+# %%
