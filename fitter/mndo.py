@@ -4,7 +4,6 @@ import subprocess
 
 import numpy as np
 
-
 # fmt: off
 ATOMS = [
     "h", "he",
@@ -71,7 +70,7 @@ def reverse_enum(lst):
 def get_rev_indices(lines, patterns):
 
     n_patterns = len(patterns)
-    i_patterns = range(n_patterns)
+    i_patterns = list(range(n_patterns))
 
     idxs = [None] * n_patterns
 

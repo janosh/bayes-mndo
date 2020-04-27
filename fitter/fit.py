@@ -8,9 +8,9 @@ import pandas as pd
 import sklearn
 import sklearn.model_selection
 from scipy.optimize import minimize
-import rmsd
 
 import mndo
+import rmsd
 
 cachedir = ".pycache"
 memory = joblib.Memory(cachedir, verbose=0)
@@ -159,26 +159,26 @@ def minimize_params_scipy(
 
         return mae
 
-    def jacobian(params, dh=1e-6, debug=True):
+    def jacobian(param_list, dh=1e-6, debug=True):
         """
         Input:
         """
 
         # TODO Parallelt
 
-        grad = np.zeros_like(params)
+        grad = np.zeros_like(param_list)
 
-        for i, _ in enumerate(params):
-            params[i] += dh
-            forward = penalty(params)
+        for i, _ in enumerate(param_list):
+            param_list[i] += dh
+            forward = penalty(param_list)
 
-            params[i] -= 2 * dh
-            backward = penalty(params)
+            param_list[i] -= 2 * dh
+            backward = penalty(param_list)
 
             de = forward - backward
             grad[i] = de / (2 * dh)
 
-            params[i] += dh  # undo in-place changes to params for next iteration
+            param_list[i] += dh  # undo in-place changes to params for next iteration
 
         if debug:
             nm = np.linalg.norm(grad)
