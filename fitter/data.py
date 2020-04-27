@@ -45,7 +45,10 @@ def load_data(
 
 
 # fmt: off
-ignore_keys = ["DD2", "DD3", "PO1", "PO2", "PO3", "PO9", "HYF", "CORE", "EISOL", "FN1", "FN2", "FN3", "GSCAL", "BETAS", "ZS"]
+ignore_keys = [
+    "DD2", "DD3", "PO1", "PO2", "PO3", "PO9", "HYF", "CORE",
+    "EISOL", "FN1", "FN2", "FN3", "GSCAL", "BETAS", "ZS"
+]
 # fmt: on
 
 

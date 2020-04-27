@@ -3,9 +3,7 @@ import os
 import subprocess
 
 import numpy as np
-import pandas as pd
 
-import rmsd
 
 # fmt: off
 ATOMS = [
@@ -299,11 +297,11 @@ def get_properties(lines):
     idx_z = 4
     # continue until we hit a blank line
     while not lines[j].isspace() and lines[j].strip():
-        l = lines[j].split()
-        atoms.append(int(l[idx_atm]))
-        x = l[idx_x]
-        y = l[idx_y]
-        z = l[idx_z]
+        line = lines[j].split()
+        atoms.append(int(line[idx_atm]))
+        x = line[idx_x]
+        y = line[idx_y]
+        z = line[idx_z]
         xyz = [x, y, z]
         xyz = [float(c) for c in xyz]
         coord.append(xyz)

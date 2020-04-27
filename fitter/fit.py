@@ -1,20 +1,16 @@
 import argparse
-import copy
 import itertools
 import json
-import sys
 
 import joblib
 import numpy as np
 import pandas as pd
 import sklearn
 import sklearn.model_selection
-from numpy.linalg import norm
 from scipy.optimize import minimize
-from tqdm import tqdm
+import rmsd
 
 import mndo
-import rmsd
 
 cachedir = ".pycache"
 memory = joblib.Memory(cachedir, verbose=0)
@@ -157,8 +153,7 @@ def minimize_params_scipy(
         idxs = np.argwhere(np.isnan(diff))
         diff[idxs] = 700
 
-        err = np.abs(diff).mean()
-        err = np.abs(diff).mean()
+        mae = np.abs(diff).mean()
 
         # print(f"penalty: {mae:.4g}")
 
