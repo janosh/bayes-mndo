@@ -20,10 +20,10 @@ def test_params():
         [3.0355546734, 0.7552313348, -0.0229864829],
     ]
 
-    inptxt = mndo.get_input(atoms, coords, 0, "testfile")
+    input_txt = mndo.get_input(atoms, coords, 0, "testfile")
 
     with open(filename, "w") as f:
-        f.write(inptxt)
+        f.write(input_txt)
 
     calculations = mndo.run_mndo_file(filename)
 
