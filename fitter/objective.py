@@ -1,5 +1,7 @@
-import mndo
 import numpy as np
+from tqdm import trange
+
+import mndo
 
 
 def penalty(param_vals, param_keys, ref_energies, filename):
@@ -22,21 +24,23 @@ def penalty(param_vals, param_keys, ref_energies, filename):
 
     mse = (diff ** 2).mean()
 
-    print(f"mse: {mse:10.2f}")
+    # print(f"mse: {mse:10.2f}")
 
     return mse
 
 
-def jacobian(param_list, dh=1e-6):
+def jacobian(*args, dh=1e-6):
+    param_list, *rest = args
 
     grad = np.zeros_like(param_list)
+    param_list = list(param_list)
 
-    for i in range(len(param_list)):
+    for i in trange(len(param_list)):
         param_list[i] += dh
-        forward = penalty(param_list)
+        forward = penalty(param_list, *rest)
 
         param_list[i] -= 2 * dh
-        backward = penalty(param_list)
+        backward = penalty(param_list, *rest)
 
         de = forward - backward
         grad[i] = de / (2 * dh)

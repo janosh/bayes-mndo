@@ -123,7 +123,7 @@ def run_mndo_file(filename):
     Runs mndo on the given input file and yeilds groups of lines for each
     molecule as the program completes. 
     """
-    cmd = "mndo/mndo99_20121112_intel64_ifort-11.1.080_mkl-10.3.12.361"
+    cmd = "../mndo/mndo99_20121112_intel64_ifort-11.1.080_mkl-10.3.12.361"
     cmd = os.path.expanduser(cmd)
     lines = execute(cmd, filename)
 
@@ -141,6 +141,8 @@ def run_mndo_file(filename):
         if "COMPUTATION TIME" in line:
             yield molecule_lines
             molecule_lines = []
+
+    print("lines:", list(lines))
 
 
 def calculate(filename):
