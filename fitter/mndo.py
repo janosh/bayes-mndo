@@ -333,6 +333,14 @@ def set_params(params, cwd=None):
         file.write(txt)
 
 
+def write_tmp_optimizer(atoms, coords, method):
+
+    txt = get_inputs(atoms, coords, np.zeros_like(atoms), range(len(atoms)), method)
+
+    with open("_tmp_optimizer", "w") as f:
+        f.write(txt)
+
+
 def get_inputs(atoms_list, coords_list, charges, titles, method=None):
     """
     """

@@ -92,17 +92,7 @@ def minimize_params_scipy(
 ):
     """
     """
-    filename = "_tmp_optimizer"
-    txt = mndo.get_inputs(
-        mols_atoms,
-        mols_coords,
-        np.zeros_like(mols_atoms),
-        range(len(mols_atoms)),
-        method=method,
-    )
-
-    with open(filename, "w") as f:
-        f.write(txt)
+    mndo.write_tmp_optimizer(mols_atoms, mols_coords, method)
 
     # find the species of atoms present in the batch of data
     atoms = [np.unique(mol_atoms) for mol_atoms in mols_atoms]

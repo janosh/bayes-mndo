@@ -7,6 +7,7 @@ import tensorflow_probability as tfp
 from data import load_data, prepare_data
 from objective import penalty
 from datetime import datetime
+import mndo
 
 
 # %%
@@ -32,6 +33,7 @@ with open("../parameters/parameters-pm3.json") as file:
 # param_keys needed for mndo.set_params
 # param_values acts as initial condition for HMC kernel
 param_keys, param_values = prepare_data(mols_atoms, start_params)
+mndo.write_tmp_optimizer(mols_atoms, coords, method="PM3")
 
 
 # %%
