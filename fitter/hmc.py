@@ -52,7 +52,10 @@ summary_writer = tf.summary.create_file_writer(log_dir, flush_millis=1000)
 
 def trace_fn(cs, kr, summary_freq=10, callbacks=[]):
     """
-    cs: current_state, kr: kernel_results
+    cs (current_state): (list of) tensor(s) constituting the position in parameter space
+    kr (kernel_results): kernel diagnostics like energy, log likelihood, step size, etc.
+    summary_freq: record stats every n steps (unused)
+    callbacks: list of functions taking in current_state, output is added to trace
     """
     step = tf.cast(kr.step, tf.int64)
     # with tf.summary.record_if(tf.equal(step % summary_freq, 0)):
