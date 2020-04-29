@@ -21,7 +21,7 @@ def load_data(
         charges: List of species charges for each molecule in query
         filenames: List of names for each reference
     """
-    reference = pd.read_csv(data_file)
+    reference = pd.read_csv(data_file, skiprows=range(1, offset), nrows=query_size)
 
     atoms_list, coord_list, charges = [], [], []
     filenames = reference["name"]
@@ -34,12 +34,12 @@ def load_data(
         atoms_list.append(atoms)
         coord_list.append(coords)
 
-    end = offset + query_size
-    atoms_list = atoms_list[offset:end]
-    coord_list = coord_list[offset:end]
-    charges = charges[offset:end]
-    filenames = filenames[offset:end]
-    reference = reference[offset:end]
+    # end = offset + query_size
+    # atoms_list = atoms_list[offset:end]
+    # coord_list = coord_list[offset:end]
+    # charges = charges[offset:end]
+    # filenames = filenames[offset:end]
+    # reference = reference[offset:end]
 
     return atoms_list, coord_list, charges, filenames, reference
 
