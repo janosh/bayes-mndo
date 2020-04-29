@@ -5,7 +5,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import tensorflow_probability as tfp
 from data import load_data, prepare_data
-from objective import penalty
+from objective import penalty, jacobian
 from datetime import datetime
 import mndo
 
@@ -37,13 +37,19 @@ mndo.write_tmp_optimizer(mols_atoms, coords, method="PM3")
 
 
 # %%
-dist = tfp.distributions.Normal(0, 1)
+# dist = tfp.distributions.Normal(0, 1)
 
 
+@tf.custom_gradient
 def target_log_prob_fn(*param_vals):
-    # log_likelihood = -penalty(param_vals, param_keys, ref_energies, "_tmp_optimizer")
-    # return log_likelihood
-    return dist.log_prob(*param_vals)
+    log_likelihood = -penalty(param_vals, param_keys, ref_energies, "_tmp_optimizer")
+
+    def grad_fn(*dys):
+        grad = jacobian(param_vals)
+        return grad * dys
+
+    return log_likelihood, grad_fn
+    # return dist.log_prob(*param_vals)
 
 
 # %%

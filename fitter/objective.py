@@ -25,3 +25,25 @@ def penalty(param_vals, param_keys, ref_energies, filename):
     print(f"mse: {mse:10.2f}")
 
     return mse
+
+
+def jacobian(param_list, dh=1e-6):
+
+    grad = np.zeros_like(param_list)
+
+    for i in range(len(param_list)):
+        param_list[i] += dh
+        forward = penalty(param_list)
+
+        param_list[i] -= 2 * dh
+        backward = penalty(param_list)
+
+        de = forward - backward
+        grad[i] = de / (2 * dh)
+
+        param_list[i] += dh  # undo in-place changes to params for next iteration
+
+    norm = np.linalg.norm(grad)
+    print(f"penalty grad: {norm:.4g}")
+
+    return grad
