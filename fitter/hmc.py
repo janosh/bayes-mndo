@@ -75,7 +75,7 @@ def trace_fn(cs, kr, summary_freq=10, callbacks=[]):
     summary_freq: record stats every n steps (unused)
     callbacks: list of functions taking in current_state, output is added to trace
     """
-    step = tf.cast(kr.step, tf.int64)
+    # step = tf.cast(kr.step, tf.int64)
     # with tf.summary.record_if(tf.equal(step % summary_freq, 0)):
     nuts = kr.inner_results
     target_log_prob = nuts.target_log_prob
