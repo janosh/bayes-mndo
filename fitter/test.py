@@ -2,12 +2,12 @@ import mndo
 
 
 def test_params():
-    parameters = {}
-    parameters["O"] = {}
-    parameters["O"]["USS"] = 666.0
+    params = {}
+    params["O"] = {}
+    params["O"]["USS"] = 666.0
     filename = "_tmp_test_params"
 
-    mndo.set_params(parameters)
+    mndo.set_params(params)
 
     atoms = ["O", "N", "C", "N", "N", "H"]
 

@@ -88,18 +88,9 @@ def get_rev_indices(lines, patterns):
     return idxs
 
 
-# def get_rev_index(lines, pattern):
-
-#     for i, line in reverse_enum(lines):
-#         if pattern in line:
-#             return i
-
-#     return None
-
-
 def execute(cmd, filename):
     """
-    Call the mndo fortran binary. Needs mndo to be in path for this function to work.
+    Call the MNDO fortran binary. For this function to work requires `mndo` to be in path.
     """
 
     popen = subprocess.Popen(
@@ -121,8 +112,8 @@ def execute(cmd, filename):
 
 def run_mndo_file(filename):
     """
-    Runs mndo on the given input file and yeilds groups of lines for each
-    molecule as the program completes. 
+    Runs mndo on the given input file and yields groups of lines for each
+    molecule as the program completes.
     """
     cmd = "../mndo/mndo99_20121112_intel64_ifort-11.1.080_mkl-10.3.12.361"
     cmd = os.path.expanduser(cmd)
@@ -173,16 +164,7 @@ def get_properties(lines):
         dict of properties
     """
 
-    # TODO UNABLE TO ACHIEVE SCF CONVERGENCE
-    # TODO optimization failed
-
-    properties = {}
-
-    # check for error
-    # idx = get_index(lines, "UNABLE TO ACHIEVE SCF CONVERGENCE")
-    # if idx is not None:
-    #     properties["energy"] = np.nan
-    #     return properties
+    props = {}
 
     keywords = [
         "CORE HAMILTONIAN MATR",
@@ -204,7 +186,7 @@ def get_properties(lines):
     line = line.split()
     value = line[1]
     e_scf = float(value)
-    properties["e_scf"] = e_scf
+    props["e_scf"] = e_scf
 
     # Nuclear energy
     idx = idx_keywords[1]
@@ -212,7 +194,7 @@ def get_properties(lines):
     line = line.split()
     value = line[2]
     e_nuc = float(value)
-    properties["e_nuc"] = e_nuc  # ev
+    props["e_nuc"] = e_nuc  # ev
 
     # eisol
     eisol = {}
@@ -224,67 +206,13 @@ def get_properties(lines):
         value = line[2]
         eisol[atom] = float(value)  # ev
 
-    # # Enthalpy of formation
-    # idx_hof = get_index(lines, "SCF HEAT OF FORMATION")
-    # line = lines[idx_hof]
-    # line = line.split("FORMATION")
-    # line = line[1]
-    # line = line.split()
-    # value = line[0]
-    # value = float(value)
-    # properties["h"] = value # kcal/mol
-
     # ionization
     # idx = get_rev_index(lines, "IONIZATION ENERGY")
     idx = idx_keywords[2]
     line = lines[idx]
     value = line.split()[-2]
     e_ion = float(value)  # ev
-    properties["e_ion"] = e_ion
-
-    # # Dipole
-    # idx = get_rev_index(lines, "PRINCIPAL AXIS")
-    # line = lines[idx]
-    # line = line.split()
-    # value = line[-1]
-    # value = float(value) # Debye
-    # properties["mu"] = value
-
-    # # optimized coordinates
-    # i = get_rev_index(lines, "CARTESIAN COORDINATES")
-    # idx_atm = 1
-    # idx_x = 2
-    # idx_y = 3
-    # idx_z = 4
-    # n_skip = 4
-    #
-    # if i < idx_hof:
-    #     i = get_rev_index(lines, "X-COORDINATE")
-    #     idx_atm = 1
-    #     idx_x = 2
-    #     idx_y = 4
-    #     idx_z = 6
-    #     n_skip = 3
-    #
-    # j = i + n_skip
-    # symbols = []
-    # coord = []
-    #
-    # # continue until we hit a blank line
-    # while not lines[j].isspace() and lines[j].strip():
-    #     l = lines[j].split()
-    #     symbols.append(int(l[idx_atm]))
-    #     x = l[idx_x]
-    #     y = l[idx_y]
-    #     z = l[idx_z]
-    #     xyz = [x, y, z]
-    #     xyz = [float(c) for c in xyz]
-    #     coord.append(xyz)
-    #     j += 1
-    #
-    # coord = np.array(coord)
-    # properties["coord"] = coord
-    # properties["atoms"] = symbols
+    props["e_ion"] = e_ion
 
     # input coords
     # idx = get_rev_index(lines, "INPUT GEOMETRY")
@@ -314,9 +242,9 @@ def get_properties(lines):
     e_iso = np.sum(e_iso)
     energy = e_nuc + e_scf - e_iso
 
-    properties["energy"] = energy
+    props["energy"] = energy
 
-    return properties
+    return props
 
 
 @lru_cache()
