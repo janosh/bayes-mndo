@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+from functools import lru_cache
 
 import numpy as np
 
@@ -318,18 +319,43 @@ def get_properties(lines):
     return properties
 
 
-def set_params(params, cwd=None):
+@lru_cache()
+def load_prior_dicts(
+    scale_path="../parameters/scale-pm3.json",
+    default_path="../parameters/parameters-pm3.json",
+):
+
+    with open(default_path, "r") as file:
+        raw_json = file.read()
+        default_dict = json.loads(raw_json)
+
+    with open(scale_path, "r") as file:
+        raw_json = file.read()
+        scale_dict = json.loads(raw_json)
+    #     default_opt_dict = json.loads(raw_json)
+
+    # scale_dict = {}
+    # for atomtype in default_dict:
+    #     scale_dict[atomtype] = {}
+    #     atom, opt_atom = default_dict[atomtype], default_opt_dict[atomtype]
+    #     for key in default_dict[atomtype]:
+    #         scale_dict[atomtype][key] = atom[key] - opt_atom[key]
+
+    return default_dict, scale_dict
+
+
+def set_params(params):
     """
     Save the current model parameters to the mndo input file.
     """
     txt = ""
+    defaults, scales = load_prior_dicts()
 
     for atomtype in params:
-        for key in params[atomtype]:
-            txt += f"{key:8s} {atomtype:2s} {params[atomtype][key]:15.11f}\n"
-
-    if cwd is not None:
-        os.chdir(cwd)
+        p, s, d = params[atomtype], scales[atomtype], defaults[atomtype]
+        for key in p:
+            val = p[key] * s[key] + d[key]
+            txt += f"{key:8s} {atomtype:2s} {val:15.11f}\n"
 
     with open("fort.14", "w") as file:
         file.write(txt)
