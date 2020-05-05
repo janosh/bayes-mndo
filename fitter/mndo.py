@@ -289,11 +289,11 @@ def set_params(params):
         file.write(txt)
 
 
-def write_tmp_optimizer(atoms, coords, method):
+def write_tmp_optimizer(atoms, coords, method, filename="_tmp_optimizer"):
 
     txt = get_inputs(atoms, coords, np.zeros_like(atoms), range(len(atoms)), method)
 
-    with open("_tmp_optimizer", "w") as f:
+    with open(filename, "w") as f:
         f.write(txt)
 
 

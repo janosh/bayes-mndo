@@ -96,11 +96,11 @@ def trace_fn(cs, kr, summary_freq=10, callbacks=[]):
 
 
 # %%
-step_size = 1e-5
+step_size = 1e-2
 kernel = tfp.mcmc.NoUTurnSampler(real_target_log_prob_fn, step_size)
 adaptive_kernel = tfp.mcmc.SimpleStepSizeAdaptation(
     kernel,
-    num_adaptation_steps=2000,
+    num_adaptation_steps=100,
     # pkr: previous kernel results, ss: step size
     step_size_setter_fn=lambda pkr, new_ss: pkr._replace(step_size=new_ss),
     step_size_getter_fn=lambda pkr: pkr.step_size,
@@ -108,7 +108,7 @@ adaptive_kernel = tfp.mcmc.SimpleStepSizeAdaptation(
 )
 
 chain, trace, final_kernel_results = sample_chain(
-    num_results=1000,
+    num_results=100,
     # current_state=tf.constant(2.0),
     current_state=param_values,
     kernel=adaptive_kernel,

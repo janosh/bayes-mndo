@@ -17,7 +17,7 @@ The environment `mndo` was originally created by running the command:
 ```sh
 conda create -n mndo python=3.6 \
   && conda activate mndo \
-  && pip install tensorflow tensorflow-probability rmsd pandas scikit-learn
+  && pip install tensorflow tensorflow-probability rmsd pandas scikit-learn tqdm matplotlib
 ```
 
 To delete the environment run `conda env remove -n mndo`.
