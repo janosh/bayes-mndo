@@ -16,7 +16,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 # %%
 # @tf.function
-@tf.function(experimental_compile=True)
+# @tf.function(experimental_compile=True)
 def sample_chain(*args, **kwargs):
     """Since this is bulk of the computation, using @tf.function
     here to compile a static graph for tfp.mcmc.sample_chain significantly improves
@@ -28,7 +28,7 @@ def sample_chain(*args, **kwargs):
 
 
 # %%
-mols_atoms, coords, charges, titles, reference = load_data(query_size=10)
+mols_atoms, coords, charges, titles, reference = load_data(query_size=100)
 ref_energies = reference.iloc[:, 1].tolist()
 
 with open("../parameters/parameters-pm3.json") as file:
@@ -38,7 +38,8 @@ with open("../parameters/parameters-pm3.json") as file:
 # param_keys needed for mndo.set_params
 # param_values acts as initial condition for HMC kernel
 param_keys, param_values = prepare_data(mols_atoms, start_params)
-param_values = [tf.Variable(x) for x in param_values]
+# param_values = [tf.Variable(x) for x in param_values]
+param_values = [tf.random.truncated_normal([], stddev=0.5) for _ in param_keys]
 
 mndo.write_tmp_optimizer(mols_atoms, coords, method="PM3")
 
@@ -50,17 +51,14 @@ def target_log_prob_fn(*param_vals):
 
     def grad_fn(*dys):
         grad = jacobian(param_vals, param_keys, ref_energies, "_tmp_optimizer")
-        return dys * grad
+        return list(dys * grad)
 
     return log_likelihood, grad_fn
-    # return dist.log_prob(*param_vals)
 
 
-# dist = tfp.distributions.Normal(0, 1)
+def real_target_log_prob_fn(*param_vals):
+    return tf.py_function(target_log_prob_fn, inp=param_vals, Tout=tf.float64)
 
-target_log_prob_fn = tf.py_function(
-    target_log_prob_fn, inp=param_values, Tout=tf.float64
-)
 
 # %%
 now = datetime.now().strftime("%Y.%m.%d-%H:%M:%S")
@@ -75,22 +73,22 @@ def trace_fn(cs, kr, summary_freq=10, callbacks=[]):
     summary_freq: record stats every n steps (unused)
     callbacks: list of functions taking in current_state, output is added to trace
     """
-    # step = tf.cast(kr.step, tf.int64)
-    # with tf.summary.record_if(tf.equal(step % summary_freq, 0)):
+    step = tf.cast(kr.step, tf.int64)
     nuts = kr.inner_results
     target_log_prob = nuts.target_log_prob
 
     with summary_writer.as_default():
         tf.summary.experimental.set_step(step)
-        tf.summary.scalar("target prob", tf.exp(target_log_prob))
+        tf.summary.scalar("log likelihood (mse)", target_log_prob)
         tf.summary.scalar("energy", nuts.energy)
-        tf.summary.scalar("accept ratio", tf.exp(nuts.log_accept_ratio))
+        tf.summary.scalar("log accept ratio", nuts.log_accept_ratio)
         tf.summary.scalar("leapfrogs taken", nuts.leapfrogs_taken)
-    # tf.summary.scalar("step size", nuts.step_size)
+        with tf.summary.record_if(tf.equal(step % summary_freq, 0)):
+            tf.summary.histogram("step size", nuts.step_size)
 
-    # tf.summary.scalar("step size", kr.new_step_size)
-    # tf.summary.scalar("decay rate", kr.decay_rate)
-    # tf.summary.scalar("error sum", kr.error_sum)
+        # tf.summary.scalar("step size", kr.new_step_size)
+        # tf.summary.scalar("decay rate", kr.decay_rate)
+        # tf.summary.scalar("error sum", kr.error_sum)
 
     if callbacks:
         return target_log_prob, [cb(*cs) for cb in callbacks]
@@ -98,11 +96,11 @@ def trace_fn(cs, kr, summary_freq=10, callbacks=[]):
 
 
 # %%
-step_size = 1e-2
-kernel = tfp.mcmc.NoUTurnSampler(target_log_prob_fn, step_size)
-adaptive_kernel = tfp.mcmc.DualAveragingStepSizeAdaptation(
+step_size = 1e-5
+kernel = tfp.mcmc.NoUTurnSampler(real_target_log_prob_fn, step_size)
+adaptive_kernel = tfp.mcmc.SimpleStepSizeAdaptation(
     kernel,
-    num_adaptation_steps=100,
+    num_adaptation_steps=2000,
     # pkr: previous kernel results, ss: step size
     step_size_setter_fn=lambda pkr, new_ss: pkr._replace(step_size=new_ss),
     step_size_getter_fn=lambda pkr: pkr.step_size,
