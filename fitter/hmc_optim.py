@@ -57,7 +57,11 @@ def target_log_prob_fn(*param_vals):
 
 
 def real_target_log_prob_fn(*param_vals):
-    return tf.py_function(target_log_prob_fn, inp=param_vals, Tout=tf.float64)
+    res = tf.py_function(target_log_prob_fn, inp=param_vals, Tout=tf.float64)
+    # Avoid tripping up sample_chain due to loss of output shape in tf.py_function
+    # when used in a tf.function context. https://tinyurl.com/y9ttqdpt
+    res.set_shape(param_vals[0].shape[:-1])  # assumes parameter is vector-valued
+    return res
 
 
 # %%
