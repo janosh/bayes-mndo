@@ -100,7 +100,7 @@ def trace_fn(cs, kr, summary_freq=10, callbacks=[]):
 
 
 # %%
-step_size = 1e-2
+step_size = 1e-3
 kernel = tfp.mcmc.NoUTurnSampler(real_target_log_prob_fn, step_size)
 adaptive_kernel = tfp.mcmc.SimpleStepSizeAdaptation(
     kernel,

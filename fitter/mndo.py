@@ -1,7 +1,10 @@
+import copy
+import functools
 import json
+import multiprocessing as mp
 import os
+import shutil
 import subprocess
-from functools import lru_cache
 
 import numpy as np
 
@@ -88,13 +91,18 @@ def get_rev_indices(lines, patterns):
     return idxs
 
 
-def execute(cmd, filename):
+def execute(cmd, filename, cwd):
     """
     Call the MNDO fortran binary. For this function to work requires `mndo` to be in path.
     """
+    
+    if cwd is not None:
+        job_cmd = f"cd {cwd}; {cmd} < {filename}"
+    else:
+        job_cmd = f"{cmd} < {filename}"
 
     popen = subprocess.Popen(
-        f"{cmd} < {filename}",
+        job_cmd,
         stdout=subprocess.PIPE,
         universal_newlines=True,
         shell=True,
@@ -110,14 +118,14 @@ def execute(cmd, filename):
         raise subprocess.CalledProcessError(return_code, cmd)
 
 
-def run_mndo_file(filename):
+def run_mndo_file(filename, cwd=None):
     """
     Runs mndo on the given input file and yields groups of lines for each
     molecule as the program completes.
     """
-    cmd = "../mndo/mndo99_20121112_intel64_ifort-11.1.080_mkl-10.3.12.361"
+    cmd = "/home/reag2/PhD/second-year/fitting/mndo/mndo99_binary"
     cmd = os.path.expanduser(cmd)
-    lines = execute(cmd, filename)
+    lines = execute(cmd, filename, cwd)
 
     molecule_lines = []
 
@@ -125,7 +133,7 @@ def run_mndo_file(filename):
     for line in lines:
 
         line = line.strip()
-        molecule_lines.append(line)
+        molecule_lines.append(line.strip("\n"))
 
         if "STATISTICS FOR RUNS WITH MANY MOLECULES" in line:
             return
@@ -137,12 +145,12 @@ def run_mndo_file(filename):
     print("lines:", list(lines))
 
 
-def calculate(filename):
+def calculate(filename, cwd=None):
     """
     Collect sets of lines for each molecule as they become availiable
     and then call a parser to extract the dictionary of properties.
     """
-    calculations = run_mndo_file(filename)
+    calculations = run_mndo_file(filename, cwd)
 
     props_list = []
 
@@ -247,7 +255,7 @@ def get_properties(lines):
     return props
 
 
-@lru_cache()
+@functools.lru_cache()
 def load_prior_dicts(
     scale_path="../parameters/scale-pm3.json",
     default_path="../parameters/parameters-pm3.json",
@@ -272,7 +280,7 @@ def load_prior_dicts(
     return default_dict, scale_dict
 
 
-def set_params(params):
+def set_params(params, cwd=None):
     """
     Save the current model parameters to the mndo input file.
     """
@@ -285,7 +293,13 @@ def set_params(params):
             val = p[key] * s[key] + d[key]
             txt += f"{key:8s} {atomtype:2s} {val:15.11f}\n"
 
-    with open("fort.14", "w") as file:
+    filename = "fort.14"
+
+    if cwd is not None:
+        cwd = fix_dir_name(cwd)
+        filename = cwd + filename
+
+    with open(filename, "w") as file:
         file.write(txt)
 
 
@@ -322,6 +336,144 @@ def get_input(atoms, coords, charge, title, method=None):
         txt += line
 
     return txt + "\n"
+
+## Parallel code additions
+
+def get_pinfo():
+    """
+    get process id of parent and current process
+    """
+    ppid = os.getppid()
+    pid = os.getpid()
+    return ppid, ppid
+
+
+def fix_dir_name(name):
+
+    if not name.endswith("/"):
+        name += "/"
+
+    return name
+
+
+def get_indexes_patterns(lines, patterns):
+    
+    n_patterns = len(patterns)
+    i_patterns = list(range(n_patterns))
+
+    idxs = [None]*n_patterns
+
+    for i, line in enumerate(lines):
+
+        for ip in i_patterns:
+
+            pattern = patterns[ip]
+
+            if pattern in line:
+                idxs[ip] = i
+                i_patterns.remove(ip)
+
+    return idxs
+
+
+def worker(*args, **kwargs):
+    
+    scr = kwargs["scr"]
+    filename = kwargs["filename"]
+
+    # Ensure unique directory
+    scr = fix_dir_name(scr)
+    pid = os.getpid()
+    cwd = f"{scr}{pid}/"
+
+    if not os.path.exists(cwd):
+        os.mkdir(cwd)
+
+    if not os.path.exists(cwd + filename):
+        shutil.copy2(scr + filename, cwd + filename)
+
+    # Set params in worker dir
+    params = args[0]
+    set_params(params, cwd=cwd)
+
+    # Calculate properties
+    properties_list = calculate(filename, cwd=cwd)
+
+
+def calculate_multi_params(
+    inputstr,
+    params_list,
+    scr=None,
+    n_procs=1):
+    """
+    """
+
+    scr = "_tmp_mndo_/"
+    if not os.path.exists(scr):
+        os.mkdir(scr)
+
+    filename = "_tmp_inputstr_"
+    with open(scr + filename, 'w') as f:
+        f.write(inputstr)
+
+    kwargs = {"scr": scr, "filename": filename,}
+
+    mapfunc = functools.partial(worker, **kwargs)
+
+    p = mp.Pool(n_procs)
+    results = p.map(mapfunc, params_list)
+
+    return results
+
+
+def get_tmp_optimizer(atoms, coords, method, filename="_tmp_optimizer"):
+    
+    txt = get_inputs(atoms, coords, np.zeros_like(atoms), range(len(atoms)), method)
+
+    return txt
+
+
+def numerical_jacobian(inputstr, param_vals, param_keys, dh=10**-5, n_procs=2):
+    """
+    get properties for
+    """
+
+    params_joblist = []
+
+    params = {key[0]: {} for key in param_keys}
+    param_grad = {key[0]: {} for key in param_keys}
+    for (atom_type, prop), param in zip(param_keys, param_vals):
+        params[atom_type][prop] = param
+        param_grad[atom_type][prop] = []
+
+    for (atom_type, prop) in param_keys:
+        dparams = copy.deepcopy(params)
+
+        # forward
+        dparams[atom_type][prop] += dh
+        params_joblist.append(copy.deepcopy(dparams))
+
+        # backward
+        dparams[atom_type][prop] -= 2*dh
+        params_joblist.append(copy.deepcopy(dparams))
+
+
+    # Calculate all results
+    results = calculate_multi_params(inputstr, params_joblist, n_procs=n_procs)
+    n_results = len(results)
+
+    i = 0
+    for atom in params.keys():
+        for key in params[atom].keys():
+            param_grad[atom][key].append(results[i])
+            param_grad[atom][key].append(results[i+1])
+            i += 2
+
+    print(param_grad)
+
+    return param_grad
+
+## Utilities for extracting default parameters
 
 
 def dump_default_params():

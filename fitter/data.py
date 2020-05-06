@@ -2,7 +2,6 @@ import itertools
 
 import numpy as np
 import pandas as pd
-
 import rmsd
 
 
@@ -33,13 +32,6 @@ def load_data(
         charges.append(0)
         atoms_list.append(atoms)
         coord_list.append(coords)
-
-    # end = offset + query_size
-    # atoms_list = atoms_list[offset:end]
-    # coord_list = coord_list[offset:end]
-    # charges = charges[offset:end]
-    # filenames = filenames[offset:end]
-    # reference = reference[offset:end]
 
     return atoms_list, coord_list, charges, filenames, reference
 

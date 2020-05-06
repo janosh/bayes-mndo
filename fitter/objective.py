@@ -22,14 +22,15 @@ def penalty(param_vals, param_keys, ref_energies, filename):
 
     diff = ref_energies - pred_energies
 
-    mse = (diff ** 2).mean()
+    error = (diff ** 2).mean()
+    # error = np.abs(diff).mean()
+    
+    # print(f"error: {error:.4g}")
 
-    # print(f"mse: {mse:.4g}")
-
-    return mse
+    return error
 
 
-def jacobian(*args, dh=1e-6):
+def jacobian(*args, dh=1e-5):
     param_list, *rest = args
 
     grad = np.zeros_like(param_list)
