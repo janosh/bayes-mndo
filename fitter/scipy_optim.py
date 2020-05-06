@@ -1,13 +1,8 @@
-import argparse
-import itertools
 import json
 import time
 
-import joblib
 import numpy as np
-import pandas as pd
 from scipy.optimize import minimize
-from scipy.stats import truncnorm
 from tqdm import trange
 
 import mndo
@@ -15,24 +10,26 @@ from data import load_data, prepare_data
 
 
 def minimize_params_scipy(
-    mols_atoms,
-    mols_coords,
-    ref_energies,
-    n_procs=1,
-    method="PM3",
+    mols_atoms, mols_coords, ref_energies, n_procs=1, method="PM3",
 ):
     """
     """
     filename = "_tmp_optimizer"
     mndo.write_tmp_optimizer(mols_atoms, mols_coords, method)
-    inputtxt = mndo.get_inputs(mols_atoms, mols_coords, np.zeros_like(mols_atoms), range(len(mols_atoms)), method)
+    inputtxt = mndo.get_inputs(
+        mols_atoms,
+        mols_coords,
+        np.zeros_like(mols_atoms),
+        range(len(mols_atoms)),
+        method,
+    )
 
     with open("../parameters/parameters-pm3-opt.json") as file:
         start_params = json.loads(file.read())
 
     param_keys, param_values = prepare_data(mols_atoms, start_params)
     # param_values = [np.random.normal() for _ in param_keys]
-    param_values = [np.array(0.) for _ in param_keys]
+    param_values = [np.array(0.0) for _ in param_keys]
 
     def penalty_properties(props_list):
         """
@@ -46,7 +43,6 @@ def minimize_params_scipy(
         # error = np.abs(diff).mean()
 
         return error
-
 
     def penalty(param_list):
         """
@@ -66,7 +62,6 @@ def minimize_params_scipy(
         props_list = mndo.calculate(filename)
 
         return penalty_properties(props_list)
-
 
     def jacobian(param_list, dh=1e-5, debug=True):
         """
@@ -93,13 +88,13 @@ def minimize_params_scipy(
 
         return grad
 
-
     def jacobian_parallel(param_list, dh=1e-5, procs=1):
         """
         """
 
-        params_grad = mndo.numerical_jacobian(inputtxt, param_list, 
-                                param_keys, n_procs=procs, dh=dh)
+        params_grad = mndo.numerical_jacobian(
+            inputtxt, param_list, param_keys, n_procs=procs, dh=dh
+        )
 
         grad = np.zeros_like(param_list)
 
@@ -110,11 +105,11 @@ def minimize_params_scipy(
             penalty_backward = penalty_properties(backward_mols)
 
             de = penalty_forward - penalty_backward
-            grad[i] = de/(2.0 * dh)
+            grad[i] = de / (2.0 * dh)
 
         return grad
 
-    dh=1e-5
+    dh = 1e-5
 
     t = time.time()
     grad = jacobian(param_values, dh=dh)
@@ -140,7 +135,7 @@ def minimize_params_scipy(
     )
 
     param_values = res.x
-    error = penalty(param_values)
+    # error = penalty(param_values)
 
     end_params = {key[0]: {} for key in param_keys}
     for key, param in zip(param_keys, param_values):

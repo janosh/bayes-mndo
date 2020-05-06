@@ -1,4 +1,3 @@
-import copy
 import functools
 import json
 import multiprocessing as mp
@@ -93,19 +92,16 @@ def get_rev_indices(lines, patterns):
 
 def execute(cmd, filename, cwd):
     """
-    Call the MNDO fortran binary. For this function to work requires `mndo` to be in path.
+    Call the MNDO fortran binary. This function requires `mndo` to be in path.
     """
-    
+
     if cwd is not None:
         job_cmd = f"cd {cwd}; {cmd} < {filename}"
     else:
         job_cmd = f"{cmd} < {filename}"
 
     popen = subprocess.Popen(
-        job_cmd,
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
-        shell=True,
+        job_cmd, stdout=subprocess.PIPE, universal_newlines=True, shell=True,
     )
 
     for stdout_line in iter(popen.stdout.readline, ""):
@@ -272,7 +268,7 @@ def load_prior_dicts(
     return default_dict, scale_dict
 
 
-def set_params(param_list, param_keys,cwd=None):
+def set_params(param_list, param_keys, cwd=None):
     """
     Save the current model parameters to the mndo input file.
     """
@@ -333,15 +329,8 @@ def get_input(atoms, coords, charge, title, method=None):
 
     return txt + "\n"
 
-## Parallel code additions
 
-def get_pinfo():
-    """
-    get process id of parent and current process
-    """
-    ppid = os.getppid()
-    pid = os.getpid()
-    return ppid, ppid
+# Parallel code additions
 
 
 def fix_dir_name(name):
@@ -353,11 +342,11 @@ def fix_dir_name(name):
 
 
 def get_indexes_patterns(lines, patterns):
-    
+
     n_patterns = len(patterns)
     i_patterns = list(range(n_patterns))
 
-    idxs = [None]*n_patterns
+    idxs = [None] * n_patterns
 
     for i, line in enumerate(lines):
 
@@ -374,7 +363,7 @@ def get_indexes_patterns(lines, patterns):
 
 def worker(*args, **kwargs):
     """
-    """ 
+    """
     scr = kwargs["scr"]
     filename = kwargs["filename"]
     param_keys = kwargs["param_keys"]
@@ -400,12 +389,7 @@ def worker(*args, **kwargs):
     return properties_list
 
 
-def calculate_multi_params(
-    inputstr,
-    params_list,
-    param_keys,
-    scr=None,
-    n_procs=1):
+def calculate_multi_params(inputstr, params_list, param_keys, scr=None, n_procs=1):
     """
     """
 
@@ -414,10 +398,10 @@ def calculate_multi_params(
         os.mkdir(scr)
 
     filename = "_tmp_inputstr_"
-    with open(scr + filename, 'w') as f:
+    with open(scr + filename, "w") as f:
         f.write(inputstr)
 
-    kwargs = {"scr": scr, "filename": filename, "param_keys":param_keys}
+    kwargs = {"scr": scr, "filename": filename, "param_keys": param_keys}
 
     mapfunc = functools.partial(worker, **kwargs)
 
@@ -425,7 +409,6 @@ def calculate_multi_params(
     results = p.map(mapfunc, params_list)
 
     return results
-
 
 
 def numerical_jacobian(inputstr, param_vals, param_keys, dh=1e-5, n_procs=2):
@@ -440,29 +423,31 @@ def numerical_jacobian(inputstr, param_vals, param_keys, dh=1e-5, n_procs=2):
         # forward
         params_joblist.append(param_vals + dhs)
         # backward
-        params_joblist.append(param_vals - 2*dhs)
+        params_joblist.append(param_vals - 2 * dhs)
         # reset dhs for next iter
         dhs[idx] = 0
 
     # Calculate all results
-    results = calculate_multi_params(inputstr, params_joblist, param_keys, n_procs=n_procs)
+    results = calculate_multi_params(
+        inputstr, params_joblist, param_keys, n_procs=n_procs
+    )
 
     i = 0
-    param_grad = {[atom]: {} for (atom,_) in param_keys}
-    for atom in params:
-        for key in params[atom]:
-            param_grad[atom][key].extend(results[i:i+2])
-            i += 2
+    param_grad = {atom: {key: []} for atom, key in param_keys}
+    for atom, key in param_keys:
+        param_grad[atom][key].extend(results[i : i + 2])
+        i += 2
 
     return param_grad
 
-## Utilities for extracting default parameters
+
+# Utilities for extracting default parameters
 
 
 def dump_default_params():
     """
     Function takes the default parameters from different methods in mndo
-    and saves them output files. 
+    and saves them output files.
     """
     # dump parameters
     methods = ["MNDO", "AM1", "PM3", "OM2"]

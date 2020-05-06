@@ -24,7 +24,7 @@ def penalty(param_vals, param_keys, ref_energies, filename):
 
     error = (diff ** 2).mean()
     # error = np.abs(diff).mean()
-    
+
     # print(f"error: {error:.4g}")
 
     return error
