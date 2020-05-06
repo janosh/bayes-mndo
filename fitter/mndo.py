@@ -120,7 +120,7 @@ def execute(cmd, filename, cwd):
 
 def run_mndo_file(filename, cwd=None):
     """
-    Runs mndo on the given input file and yields groups of lines for each
+    Runs mndo on the given input file. Yields lists of lines for each
     molecule as the program completes.
     """
     cmd = "/home/reag2/PhD/second-year/fitting/mndo/mndo99_binary"
@@ -141,8 +141,6 @@ def run_mndo_file(filename, cwd=None):
         if "COMPUTATION TIME" in line:
             yield molecule_lines
             molecule_lines = []
-
-    print("lines:", list(lines))
 
 
 def calculate(filename, cwd=None):
@@ -170,6 +168,8 @@ def get_properties(lines):
 
     return:
         dict of properties
+
+    Note to self we did remove some commented out sections, we can restore if needed
     """
 
     props = {}
@@ -268,24 +268,20 @@ def load_prior_dicts(
     with open(scale_path, "r") as file:
         raw_json = file.read()
         scale_dict = json.loads(raw_json)
-    #     default_opt_dict = json.loads(raw_json)
-
-    # scale_dict = {}
-    # for atomtype in default_dict:
-    #     scale_dict[atomtype] = {}
-    #     atom, opt_atom = default_dict[atomtype], default_opt_dict[atomtype]
-    #     for key in default_dict[atomtype]:
-    #         scale_dict[atomtype][key] = atom[key] - opt_atom[key]
 
     return default_dict, scale_dict
 
 
-def set_params(params, cwd=None):
+def set_params(param_list, param_keys,cwd=None):
     """
     Save the current model parameters to the mndo input file.
     """
     txt = ""
     defaults, scales = load_prior_dicts()
+
+    params = {key[0]: {} for key in param_keys}
+    for (atom_type, prop), param in zip(param_keys, param_list):
+        params[atom_type][prop] = param
 
     for atomtype in params:
         p, s, d = params[atomtype], scales[atomtype], defaults[atomtype]
@@ -377,9 +373,11 @@ def get_indexes_patterns(lines, patterns):
 
 
 def worker(*args, **kwargs):
-    
+    """
+    """ 
     scr = kwargs["scr"]
     filename = kwargs["filename"]
+    param_keys = kwargs["param_keys"]
 
     # Ensure unique directory
     scr = fix_dir_name(scr)
@@ -393,16 +391,19 @@ def worker(*args, **kwargs):
         shutil.copy2(scr + filename, cwd + filename)
 
     # Set params in worker dir
-    params = args[0]
-    set_params(params, cwd=cwd)
+    param_list = args[0]
+    set_params(param_list, param_keys, cwd=cwd)
 
     # Calculate properties
     properties_list = calculate(filename, cwd=cwd)
+
+    return properties_list
 
 
 def calculate_multi_params(
     inputstr,
     params_list,
+    param_keys,
     scr=None,
     n_procs=1):
     """
@@ -416,7 +417,7 @@ def calculate_multi_params(
     with open(scr + filename, 'w') as f:
         f.write(inputstr)
 
-    kwargs = {"scr": scr, "filename": filename,}
+    kwargs = {"scr": scr, "filename": filename, "param_keys":param_keys}
 
     mapfunc = functools.partial(worker, **kwargs)
 
@@ -426,50 +427,32 @@ def calculate_multi_params(
     return results
 
 
-def get_tmp_optimizer(atoms, coords, method, filename="_tmp_optimizer"):
-    
-    txt = get_inputs(atoms, coords, np.zeros_like(atoms), range(len(atoms)), method)
 
-    return txt
-
-
-def numerical_jacobian(inputstr, param_vals, param_keys, dh=10**-5, n_procs=2):
+def numerical_jacobian(inputstr, param_vals, param_keys, dh=1e-5, n_procs=2):
     """
     get properties for
     """
 
     params_joblist = []
-
-    params = {key[0]: {} for key in param_keys}
-    param_grad = {key[0]: {} for key in param_keys}
-    for (atom_type, prop), param in zip(param_keys, param_vals):
-        params[atom_type][prop] = param
-        param_grad[atom_type][prop] = []
-
-    for (atom_type, prop) in param_keys:
-        dparams = copy.deepcopy(params)
-
+    dhs = np.zeros_like(param_vals)
+    for idx in range(len(param_vals)):
+        dhs[idx] = dh
         # forward
-        dparams[atom_type][prop] += dh
-        params_joblist.append(copy.deepcopy(dparams))
-
+        params_joblist.append(param_vals + dhs)
         # backward
-        dparams[atom_type][prop] -= 2*dh
-        params_joblist.append(copy.deepcopy(dparams))
-
+        params_joblist.append(param_vals - 2*dhs)
+        # reset dhs for next iter
+        dhs[idx] = 0
 
     # Calculate all results
-    results = calculate_multi_params(inputstr, params_joblist, n_procs=n_procs)
-    n_results = len(results)
+    results = calculate_multi_params(inputstr, params_joblist, param_keys, n_procs=n_procs)
 
     i = 0
-    for atom in params.keys():
-        for key in params[atom].keys():
-            param_grad[atom][key].append(results[i])
-            param_grad[atom][key].append(results[i+1])
+    param_grad = {[atom]: {} for (atom,_) in param_keys}
+    for atom in params:
+        for key in params[atom]:
+            param_grad[atom][key].extend(results[i:i+2])
             i += 2
-
-    print(param_grad)
 
     return param_grad
 

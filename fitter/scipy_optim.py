@@ -1,6 +1,7 @@
 import argparse
 import itertools
 import json
+import time
 
 import joblib
 import numpy as np
@@ -24,7 +25,7 @@ def minimize_params_scipy(
     """
     filename = "_tmp_optimizer"
     mndo.write_tmp_optimizer(mols_atoms, mols_coords, method)
-    inputtxt = mndo.get_tmp_optimizer(mols_atoms, mols_coords, method)
+    inputtxt = mndo.get_inputs(mols_atoms, mols_coords, np.zeros_like(mols_atoms), range(len(mols_atoms)), method)
 
     with open("../parameters/parameters-pm3-opt.json") as file:
         start_params = json.loads(file.read())
@@ -54,12 +55,13 @@ def minimize_params_scipy(
         """
         # mndo expects params to be a dict, constructing that here
         # because scopt.minimze requires param_list to be a list
-        params = {key[0]: {} for key in param_keys}
-        for key, param in zip(param_keys, param_list):
-            atom_type, prop = key
-            params[atom_type][prop] = param
+        # params = {key[0]: {} for key in param_keys}
+        # for key, param in zip(param_keys, param_list):
+        #     atom_type, prop = key
+        #     params[atom_type][prop] = param
 
-        mndo.set_params(params)
+        # mndo.set_params(params)
+        mndo.set_params(param_list, param_keys)
 
         props_list = mndo.calculate(filename)
 
@@ -99,7 +101,7 @@ def minimize_params_scipy(
         params_grad = mndo.numerical_jacobian(inputtxt, param_list, 
                                 param_keys, n_procs=procs, dh=dh)
 
-        grad = np.zeros_like(param_keys)
+        grad = np.zeros_like(param_list)
 
         for i, (atom, key) in enumerate(param_keys):
             forward_mols, backward_mols = params_grad[atom][key]
@@ -112,10 +114,27 @@ def minimize_params_scipy(
 
         return grad
 
+    dh=1e-5
+
+    t = time.time()
+    grad = jacobian(param_values, dh=dh)
+    nm = np.linalg.norm(grad)
+    secs = time.time() - t
+    print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
+
+    t = time.time()
+    grad = jacobian_parallel(param_values, procs=2, dh=dh)
+    nm = np.linalg.norm(grad)
+    secs = time.time() - t
+    print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
+
+    exit()
+
     res = minimize(
         penalty,  # objective function
         param_values,  # initial condition
         method="L-BFGS-B",
+        # jac=jacobian,
         jac=jacobian_parallel,
         options={"maxiter": 1000, "disp": True},
     )
@@ -135,7 +154,7 @@ def main():
     """
     """
 
-    mols_atoms, mols_coords, _, _, reference = load_data()
+    mols_atoms, mols_coords, _, _, reference = load_data(query_size=30)
     ref_energies = reference.iloc[:, 1].tolist()
     ref_energies = np.array(ref_energies)
 
