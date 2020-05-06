@@ -46,17 +46,11 @@ def minimize_params_scipy(
 
     def penalty(param_list):
         """
-        params: dict of params for different atoms
-        ref_energies: np.array of ground truth atomic energies
+        Input:
+            param_list: array of params for different atoms
+            param_keys: list of (atom_type, key) tuples for param_list
+            ref_energies: np.array of ground truth atomic energies
         """
-        # mndo expects params to be a dict, constructing that here
-        # because scopt.minimze requires param_list to be a list
-        # params = {key[0]: {} for key in param_keys}
-        # for key, param in zip(param_keys, param_list):
-        #     atom_type, prop = key
-        #     params[atom_type][prop] = param
-
-        # mndo.set_params(params)
         mndo.set_params(param_list, param_keys)
 
         props_list = mndo.calculate(filename)
@@ -66,8 +60,9 @@ def minimize_params_scipy(
     def jacobian(param_list, dh=1e-5, debug=True):
         """
         Input:
+            param_list: array of params for different atoms
+            dh: small value for numerical gradients
         """
-
         grad = np.zeros_like(param_list)
 
         for i in trange(len(param_list)):
@@ -90,7 +85,13 @@ def minimize_params_scipy(
 
     def jacobian_parallel(param_list, dh=1e-5, procs=1):
         """
+        Input:
+            param_list: array of params for different atoms
+            dh: small value for numerical gradients
+            procs: number of cores to split computation over
         """
+        # maximum number of processes should be one per parameter
+        procs = min(procs, len(param_keys))
 
         params_grad = mndo.numerical_jacobian(
             inputtxt, param_list, param_keys, n_procs=procs, dh=dh
@@ -108,22 +109,6 @@ def minimize_params_scipy(
             grad[i] = de / (2.0 * dh)
 
         return grad
-
-    dh = 1e-5
-
-    t = time.time()
-    grad = jacobian(param_values, dh=dh)
-    nm = np.linalg.norm(grad)
-    secs = time.time() - t
-    print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
-
-    t = time.time()
-    grad = jacobian_parallel(param_values, procs=2, dh=dh)
-    nm = np.linalg.norm(grad)
-    secs = time.time() - t
-    print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
-
-    exit()
 
     res = minimize(
         penalty,  # objective function
@@ -149,16 +134,38 @@ def main():
     """
     """
 
-    mols_atoms, mols_coords, _, _, reference = load_data(query_size=30)
+    mols_atoms, mols_coords, _, _, reference = load_data(query_size=200)
     ref_energies = reference.iloc[:, 1].tolist()
     ref_energies = np.array(ref_energies)
 
-    end_params, error = minimize_params_scipy(mols_atoms, mols_coords, ref_energies,)
+    end_params = minimize_params_scipy(mols_atoms, mols_coords, ref_energies,)
+
+    with open('parameters-opt.json', 'w') as fp:
+        json.dump(end_params, fp)
 
     print(end_params)
-    print(error)
+
 
 
 if __name__ == "__main__":
     main()
     pass
+
+
+# timing code
+
+# dh = 1e-5
+
+# t = time.time()
+# grad = jacobian(param_values, dh=dh)
+# nm = np.linalg.norm(grad)
+# secs = time.time() - t
+# print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
+
+# t = time.time()
+# grad = jacobian_parallel(param_values, procs=2, dh=dh)
+# nm = np.linalg.norm(grad)
+# secs = time.time() - t
+# print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
+
+# exit()

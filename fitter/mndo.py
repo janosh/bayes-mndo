@@ -6,6 +6,7 @@ import shutil
 import subprocess
 
 import numpy as np
+from tqdm import tqdm
 
 # fmt: off
 ATOMS = [
@@ -254,7 +255,7 @@ def get_properties(lines):
 @functools.lru_cache()
 def load_prior_dicts(
     scale_path="../parameters/scale-pm3.json",
-    default_path="../parameters/parameters-pm3.json",
+    default_path="../parameters/parameters-pm3-opt.json",
 ):
 
     with open(default_path, "r") as file:
@@ -406,7 +407,8 @@ def calculate_multi_params(inputstr, params_list, param_keys, scr=None, n_procs=
     mapfunc = functools.partial(worker, **kwargs)
 
     p = mp.Pool(n_procs)
-    results = p.map(mapfunc, params_list)
+    # results = p.map(mapfunc, params_list)
+    results = list(tqdm(p.imap(mapfunc, params_list), total=len(params_list)))
 
     return results
 
@@ -423,7 +425,7 @@ def numerical_jacobian(inputstr, param_vals, param_keys, dh=1e-5, n_procs=2):
         # forward
         params_joblist.append(param_vals + dhs)
         # backward
-        params_joblist.append(param_vals - 2 * dhs)
+        params_joblist.append(param_vals - dhs)
         # reset dhs for next iter
         dhs[idx] = 0
 
@@ -432,13 +434,16 @@ def numerical_jacobian(inputstr, param_vals, param_keys, dh=1e-5, n_procs=2):
         inputstr, params_joblist, param_keys, n_procs=n_procs
     )
 
+    params_grad = {atom_type: {} for (atom_type, _) in param_keys}
+    for atom_type, prop in param_keys:
+        params_grad[atom_type][prop] = []
+
     i = 0
-    param_grad = {atom: {key: []} for atom, key in param_keys}
     for atom, key in param_keys:
-        param_grad[atom][key].extend(results[i : i + 2])
+        params_grad[atom][key].extend(results[i : i + 2])
         i += 2
 
-    return param_grad
+    return params_grad
 
 
 # Utilities for extracting default parameters
