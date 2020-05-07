@@ -12,10 +12,10 @@ from objective import jacobian, jacobian_parallel, penalty
 
 
 def minimize_params_scipy(
-    mols_atoms, mols_coords, ref_energies, dh=1e-5, n_procs=1, method="PM3",
+    mols_atoms, mols_coords, ref_energies, dh=1e-5, n_procs=2, method="PM3",
 ):
     filename = "_tmp_optimizer"
-    mndo.write_tmp_optimizer(mols_atoms, mols_coords, method)
+    mndo.write_tmp_optimizer(mols_atoms, mols_coords, filename, method)
 
     mndo_input = mndo.get_inputs(
         mols_atoms,
@@ -46,6 +46,7 @@ def minimize_params_scipy(
         "dh": dh,
         "ref_props": ref_energies,
     }
+
     try:
         res = minimize(
             partial(penalty, **kwargs),  # objective function
@@ -72,7 +73,7 @@ def minimize_params_scipy(
 
 
 def main():
-    mols_atoms, mols_coords, _, _, reference = load_data(query_size=20)
+    mols_atoms, mols_coords, _, _, reference = load_data(query_size=50)
     ref_energies = reference.iloc[:, 1].tolist()
     ref_energies = np.array(ref_energies)
 
@@ -86,21 +87,18 @@ if __name__ == "__main__":
     main()
     pass
 
+    # # timing code
 
-# timing code
+    # t = time.time()
+    # grad = jacobian(param_values, **kwargs)
+    # nm = np.linalg.norm(grad)
+    # secs = time.time() - t
+    # print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
 
-# dh = 1e-5
+    # t = time.time()
+    # grad = jacobian_parallel(param_values, **kwargs)
+    # nm = np.linalg.norm(grad)
+    # secs = time.time() - t
+    # print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
 
-# t = time.time()
-# grad = jacobian(param_values, dh=dh)
-# nm = np.linalg.norm(grad)
-# secs = time.time() - t
-# print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
-
-# t = time.time()
-# grad = jacobian_parallel(param_values, procs=2, dh=dh)
-# nm = np.linalg.norm(grad)
-# secs = time.time() - t
-# print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
-
-# exit()
+    # exit()

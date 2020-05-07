@@ -63,7 +63,7 @@ def jacobian(param_list, **kwargs):
     return grad
 
 
-def jacobian_parallel(param_list, param_keys, mndo_input, dh=1e-5, n_procs=2, **kwargs):
+def jacobian_parallel(param_list, dh=1e-5, n_procs=2, **kwargs):
     """
     Input:
         param_list: array of params for different atoms
@@ -73,21 +73,20 @@ def jacobian_parallel(param_list, param_keys, mndo_input, dh=1e-5, n_procs=2, **
         n_procs: number of cores to split computation over
     """
     # maximum number of processes should be one per parameter
-    n_procs = min(n_procs, len(param_list))
+    n_procs = min(n_procs, 2 * len(param_list))
 
-    params_grad = mndo.numerical_jacobian(
-        mndo_input, param_list, param_keys, n_procs=n_procs, dh=dh
-    )
+    results = mndo.numerical_jacobian(param_list, n_procs=n_procs, dh=dh, **kwargs)
 
     grad = np.zeros_like(param_list)
 
-    for i, (atom, key) in enumerate(param_keys):
-        forward_mols, backward_mols = params_grad[atom][key]
+    for i in range(len(param_list)):
 
-        penalty_forward = calc_err(forward_mols, **kwargs)
-        penalty_backward = calc_err(backward_mols, **kwargs)
+        forward_props, backward_props = results[2 * i : 2 * i + 2]
+
+        penalty_forward = calc_err(forward_props, **kwargs)
+        penalty_backward = calc_err(backward_props, **kwargs)
 
         de = penalty_forward - penalty_backward
-        grad[i] = de / (2.0 * dh)
+        grad[i] = de / (2 * dh)
 
     return grad

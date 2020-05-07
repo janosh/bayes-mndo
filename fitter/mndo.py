@@ -1,9 +1,9 @@
-import functools
 import json
 import multiprocessing as mp
 import os
 import shutil
 import subprocess
+from functools import lru_cache, partial
 
 import numpy as np
 from tqdm import tqdm
@@ -252,7 +252,7 @@ def get_properties(lines):
     return props
 
 
-@functools.lru_cache()
+@lru_cache()
 def load_prior_dicts(
     scale_path="../parameters/scale-pm3.json",
     default_path="../parameters/parameters-pm3-opt.json",
@@ -386,9 +386,20 @@ def worker(*args, **kwargs):
     return properties_list
 
 
-def calculate_multi_params(inputstr, params_list, param_keys, scr=None, n_procs=1):
-    """
-    """
+def numerical_jacobian(
+    param_list, dh=1e-5, n_procs=2, mndo_input=None, param_keys=None, **kwargs,
+):
+
+    params_joblist = []
+    dhs = np.zeros_like(param_list)
+    for idx in range(len(param_list)):
+        dhs[idx] = dh
+        # forward
+        params_joblist.append(param_list + dhs)
+        # backward
+        params_joblist.append(param_list - dhs)
+        # reset dhs for next iter
+        dhs[idx] = 0
 
     scr = "_tmp_mndo_/"
     if not os.path.exists(scr):
@@ -396,50 +407,17 @@ def calculate_multi_params(inputstr, params_list, param_keys, scr=None, n_procs=
 
     filename = "_tmp_inputstr_"
     with open(scr + filename, "w") as f:
-        f.write(inputstr)
+        f.write(mndo_input)
 
     kwargs = {"scr": scr, "filename": filename, "param_keys": param_keys}
 
-    mapfunc = functools.partial(worker, **kwargs)
+    mapfunc = partial(worker, **kwargs)
 
     p = mp.Pool(n_procs)
-    # results = p.map(mapfunc, params_list)
-    results = list(tqdm(p.imap(mapfunc, params_list), total=len(params_list)))
+    # results = p.map(mapfunc, params_joblist)
+    results = list(tqdm(p.imap(mapfunc, params_joblist), total=len(params_joblist)))
 
     return results
-
-
-def numerical_jacobian(inputstr, param_vals, param_keys, dh=1e-5, n_procs=2):
-    """
-    get properties for
-    """
-
-    params_joblist = []
-    dhs = np.zeros_like(param_vals)
-    for idx in range(len(param_vals)):
-        dhs[idx] = dh
-        # forward
-        params_joblist.append(param_vals + dhs)
-        # backward
-        params_joblist.append(param_vals - dhs)
-        # reset dhs for next iter
-        dhs[idx] = 0
-
-    # Calculate all results
-    results = calculate_multi_params(
-        inputstr, params_joblist, param_keys, n_procs=n_procs
-    )
-
-    params_grad = {atom_type: {} for (atom_type, _) in param_keys}
-    for atom_type, prop in param_keys:
-        params_grad[atom_type][prop] = []
-
-    i = 0
-    for atom, key in param_keys:
-        params_grad[atom][key].extend(results[i : i + 2])
-        i += 2
-
-    return params_grad
 
 
 # Utilities for extracting default parameters
