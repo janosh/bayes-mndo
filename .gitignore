@@ -9,4 +9,4 @@ __pycache__
 
 # Jupyter Notebook
 .ipynb_checkpoints
-fitter/runs/hmc-trace/*
+*events.out.tfevents.*
