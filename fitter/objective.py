@@ -4,51 +4,90 @@ from tqdm import trange
 import mndo
 
 
-def penalty(param_vals, param_keys, ref_energies, filename):
+def calc_err(props_list, ref_props=None, **kwargs):
     """
-    params: dict of params for different atoms
-    ref_energies: np.array of ground truth atomic energies
+    Input:
+        props_list: list of dictionaries of properties for each molecule
+        ref_props: the target properties
     """
-    # mndo expects params to be a dict, constructing that here
-    # because scopt.minimze requires param_list to be a list
-    params = {key[0]: {} for key in param_keys}
-    for key, param in zip(param_keys, param_vals):
-        atom_type, prop = key
-        params[atom_type][prop] = param
+    calc_props = np.array([props["energy"] for props in props_list])
+    diff = ref_props - calc_props
 
-    mndo.set_params(params)
-    preds = mndo.calculate(filename)
-    pred_energies = np.array([p["energy"] for p in preds])
+    # ASK: What does this 700.0 do?
+    idxs = np.argwhere(np.isnan(diff))
+    diff[idxs] = 700.0
 
-    diff = ref_energies - pred_energies
+    err = (diff ** 2).mean()
+    # err = np.abs(diff).mean()
 
-    error = (diff ** 2).mean()
-    # error = np.abs(diff).mean()
-
-    # print(f"error: {error:.4g}")
-
-    return error
+    return err
 
 
-def jacobian(*args, dh=1e-5):
-    param_list, *rest = args
+def penalty(param_list, param_keys=None, filename=None, **kwargs):
+    """
+    Input:
+        param_list: array of params for different atoms
+        param_keys: list of (atom_type, key) tuples for param_list
+        ref_energies: np.array of ground truth atomic energies
+        filename: file containing list of molecules for mndo calculation
+    """
+    mndo.set_params(param_list, param_keys)
 
-    grad = np.zeros_like(param_list)
+    props_list = mndo.calculate(filename)
+
+    return calc_err(props_list, **kwargs)
+
+
+def jacobian(param_list, **kwargs):
+    """
+    Input:
+        param_list: array of params for different atoms
+        dh: small value for numerical gradients
+    """
     param_list = list(param_list)
+    grad = np.zeros_like(param_list)
+    dh = kwargs.get("dh", 1e-5)
 
     for i in trange(len(param_list)):
         param_list[i] += dh
-        forward = penalty(param_list, *rest)
+        forward = penalty(param_list, **kwargs)
 
         param_list[i] -= 2 * dh
-        backward = penalty(param_list, *rest)
+        backward = penalty(param_list, **kwargs)
 
         de = forward - backward
         grad[i] = de / (2 * dh)
 
         param_list[i] += dh  # undo in-place changes to params for next iteration
 
-    # norm = np.linalg.norm(grad)
-    # print(f"penalty grad: {norm:.4g}")
+    return grad
+
+
+def jacobian_parallel(param_list, param_keys, mndo_input, dh=1e-5, n_procs=2, **kwargs):
+    """
+    Input:
+        param_list: array of params for different atoms
+        param_keys: list of (atom_type, key) tuples for param_list
+        mndo_input: str of input for the mndo calculations
+        dh: small value for numerical gradients
+        n_procs: number of cores to split computation over
+    """
+    # maximum number of processes should be one per parameter
+    n_procs = min(n_procs, len(param_list))
+
+    params_grad = mndo.numerical_jacobian(
+        mndo_input, param_list, param_keys, n_procs=n_procs, dh=dh
+    )
+
+    grad = np.zeros_like(param_list)
+
+    for i, (atom, key) in enumerate(param_keys):
+        forward_mols, backward_mols = params_grad[atom][key]
+
+        penalty_forward = calc_err(forward_mols, **kwargs)
+        penalty_backward = calc_err(backward_mols, **kwargs)
+
+        de = penalty_forward - penalty_backward
+        grad[i] = de / (2.0 * dh)
 
     return grad

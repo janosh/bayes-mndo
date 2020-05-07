@@ -296,7 +296,7 @@ def set_params(param_list, param_keys, cwd=None):
         file.write(txt)
 
 
-def write_tmp_optimizer(atoms, coords, method, filename="_tmp_optimizer"):
+def write_tmp_optimizer(atoms, coords, filename, method):
 
     txt = get_inputs(atoms, coords, np.zeros_like(atoms), range(len(atoms)), method)
 
@@ -304,9 +304,7 @@ def write_tmp_optimizer(atoms, coords, method, filename="_tmp_optimizer"):
         f.write(txt)
 
 
-def get_inputs(atoms_list, coords_list, charges, titles, method=None):
-    """
-    """
+def get_inputs(atoms_list, coords_list, charges, titles, method):
     inptxt = ""
     for atoms, coords, charge, title in zip(atoms_list, coords_list, charges, titles):
         inptxt += get_input(atoms, coords, charge, title, method=method)
@@ -314,11 +312,9 @@ def get_inputs(atoms_list, coords_list, charges, titles, method=None):
     return inptxt
 
 
-def get_input(atoms, coords, charge, title, method=None):
-    """
-    """
+def get_input(atoms, coords, charge, title, method):
     header = (
-        f"{method or 'OM2'} 1SCF MULLIK PRECISE charge={charge} iparok=1 jprint=5\n"
+        f"{method} 1SCF MULLIK PRECISE charge={charge} iparok=1 jprint=5\n"
         "nextmol=-1\n"
         f"TITLE {title}\n"
     )
