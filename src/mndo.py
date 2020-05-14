@@ -254,8 +254,10 @@ def get_properties(lines):
 
 @lru_cache()
 def load_prior_dicts(
-    scale_path="../parameters/scale-pm3.json",
-    default_path="../parameters/parameters-pm3-opt.json",
+    default_path="../parameters/parameters-mndo-zero.json",
+    # default_path="../parameters/parameters-mndo-mean.json",
+    scale_path="../parameters/parameters-mndo-one.json",
+    # scale_path="../parameters/parameters-mndo-mean.json",
 ):
 
     with open(default_path, "r") as file:

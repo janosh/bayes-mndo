@@ -1,7 +1,6 @@
 mndo
 _tmp*
 
-*.json
 fort.*
 *.inp
 .pycache

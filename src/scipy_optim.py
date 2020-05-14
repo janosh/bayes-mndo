@@ -1,5 +1,4 @@
 import json
-import time
 from functools import partial
 
 import numpy as np
@@ -25,12 +24,12 @@ def minimize_params_scipy(
         method,
     )
 
-    with open("../parameters/parameters-pm3-opt.json") as file:
+    with open("../parameters/parameters-mndo-mean.json") as file:
         start_params = json.loads(file.read())
 
     param_keys, param_values = prepare_data(mols_atoms, start_params)
-    # param_values = [np.random.normal() for _ in param_keys]
-    param_values = [0.0 for _ in param_keys]
+    # # param_values = [np.random.normal() for _ in param_keys]
+    # param_values = [0.0 for _ in param_keys]
 
     ps = [param_values]
 
@@ -77,10 +76,12 @@ def main():
     ref_energies = reference.iloc[:, 1].tolist()
     ref_energies = np.array(ref_energies)
 
-    end_params = minimize_params_scipy(mols_atoms, mols_coords, ref_energies,)
+    end_params = minimize_params_scipy(
+        mols_atoms, mols_coords, ref_energies, method="MNDO"
+    )
 
-    with open("parameters-opt.json", "w") as fp:
-        json.dump(end_params, fp)
+    with open("../parameters/parameters-opt-scipy.json", "w") as f:
+        json.dump(end_params, f)
 
 
 if __name__ == "__main__":

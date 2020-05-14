@@ -139,6 +139,9 @@ chain, trace, final_kernel_results = sample_chain(
     trace_fn=trace_fn,
 )
 
+with open("../parameters/parameters-opt-hmc.json", "w") as f:
+    json.dump([list(x) for x in chain], f)
+
 
 # %%
 fig, axs = plt.subplots(2, 2)
