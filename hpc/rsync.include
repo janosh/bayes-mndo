@@ -1,0 +1,18 @@
+# Use this file by running rsync from the project's root directory with:
+# rsync -av --delete --include-from=hpc/rsync.include . csd3:bayes-mndo
+# Test by adding the --dry-run option.
+# Note: requires setting up csd3 as an ssh alias
+
+# Copy results back from hpc with
+# rsync -av csd3:bayes-mndo/results ~/
+
+- __pycache__
+- .DS_Store
++ src
++ src/**
++ hpc
++ hpc/**
++ data
++ data/**
++ env.yml
+- *
