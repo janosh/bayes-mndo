@@ -91,19 +91,13 @@ def get_rev_indices(lines, patterns):
     return idxs
 
 
-def execute(cmd, filename, cwd):
+def execute(cmd):
     """
-    Call the MNDO fortran binary. This function requires `mndo` to be in path.
+    Continuously print subprocess output while it's running.
+    https://stackoverflow.com/a/4417735
     """
 
-    if cwd is not None:
-        job_cmd = f"cd {cwd}; {cmd} < {filename}"
-    else:
-        job_cmd = f"{cmd} < {filename}"
-
-    popen = subprocess.Popen(
-        job_cmd, stdout=subprocess.PIPE, universal_newlines=True, shell=True,
-    )
+    popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
 
     for stdout_line in iter(popen.stdout.readline, ""):
         yield stdout_line
@@ -117,32 +111,35 @@ def execute(cmd, filename, cwd):
 
 def run_mndo_file(filename, cwd=None):
     """
-    Runs mndo on the given input file. Yields lists of lines for each
+    Runs the MNDO fortran binary on the given input file. Yields lists of lines for each
     molecule as the program completes.
+
+    Requires `mndo` to be in PATH or the full path
+    to the binary to be specified in cmd (as currently).
     """
-    cmd = "/home/reag2/PhD/second-year/fitting/mndo/mndo99_binary"
-    cmd = os.path.expanduser(cmd)
+    binary_path = os.getcwd() + "/mndo/binary"
+    cmd = f"{binary_path} < {filename}"
     lines = execute(cmd, filename, cwd)
 
     molecule_lines = []
 
-    # Lines is an iterator object
+    # Lines is an iterator
     for line in lines:
 
         line = line.strip()
         molecule_lines.append(line.strip("\n"))
 
-        if "STATISTICS FOR RUNS WITH MANY MOLECULES" in line:
-            return
-
         if "COMPUTATION TIME" in line:
             yield molecule_lines
             molecule_lines = []
 
+        if "STATISTICS FOR RUNS WITH MANY MOLECULES" in line:
+            return
+
 
 def calculate(filename, cwd=None):
     """
-    Collect sets of lines for each molecule as they become availiable
+    Collect sets of lines for each molecule as they become available
     and then call a parser to extract the dictionary of properties.
     """
     calculations = run_mndo_file(filename, cwd)
@@ -307,11 +304,11 @@ def write_tmp_optimizer(atoms, coords, filename, method):
 
 
 def get_inputs(atoms_list, coords_list, charges, titles, method):
-    inptxt = ""
+    input_txt = ""
     for atoms, coords, charge, title in zip(atoms_list, coords_list, charges, titles):
-        inptxt += get_input(atoms, coords, charge, title, method=method)
+        input_txt += get_input(atoms, coords, charge, title, method=method)
 
-    return inptxt
+    return input_txt
 
 
 def get_input(atoms, coords, charge, title, method):
