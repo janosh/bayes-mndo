@@ -2,29 +2,18 @@
 import json
 import os
 from datetime import datetime
+from functools import partial
 
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-import tensorflow_probability as tfp
 
 import mndo
 from data import load_data, prepare_data
-from objective import jacobian, jacobian_parallel, penalty
+from objective import jacobian_parallel, penalty
+from hmc_utils import sample_chain, trace_fn, get_nuts_kernel
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-
-# %%
-# @tf.function
-# @tf.function(experimental_compile=True)
-def sample_chain(*args, **kwargs):
-    """Since this is bulk of the computation, using @tf.function
-    here to compile a static graph for tfp.mcmc.sample_chain significantly improves
-    performance, especially when enabling XLA (Accelerated Linear Algebra).
-    https://tensorflow.org/xla#explicit_compilation_with_tffunction
-    https://github.com/tensorflow/probability/issues/728#issuecomment-573704750
-    """
-    return tfp.mcmc.sample_chain(*args, **kwargs)
 
 
 # %%
@@ -54,6 +43,7 @@ mndo_input = mndo.get_inputs(
     range(len(mols_atoms)),
     mndo_method,
 )
+
 
 # %%
 @tf.custom_gradient
@@ -87,56 +77,19 @@ def real_target_log_prob_fn(*param_vals):
 # %%
 now = datetime.now().strftime("%Y.%m.%d-%H:%M:%S")
 log_dir = f"runs/hmc-trace/{now}"
-summary_writer = tf.summary.create_file_writer(log_dir, flush_millis=1000)
-
-
-def trace_fn(cs, kr, summary_freq=10, callbacks=[]):
-    """
-    cs (current_state): (list of) tensor(s) constituting the position in parameter space
-    kr (kernel_results): kernel diagnostics like energy, log likelihood, step size, etc.
-    summary_freq: record stats every n steps (unused)
-    callbacks: list of functions taking in current_state, output is added to trace
-    """
-    step = tf.cast(kr.step, tf.int64)
-    nuts = kr.inner_results
-    target_log_prob = nuts.target_log_prob
-
-    with summary_writer.as_default():
-        tf.summary.experimental.set_step(step)
-        tf.summary.scalar("log likelihood (mse)", target_log_prob)
-        tf.summary.scalar("energy", nuts.energy)
-        tf.summary.scalar("log accept ratio", nuts.log_accept_ratio)
-        tf.summary.scalar("leapfrogs taken", nuts.leapfrogs_taken)
-        with tf.summary.record_if(tf.equal(step % summary_freq, 0)):
-            tf.summary.histogram("step size", nuts.step_size)
-
-        # tf.summary.scalar("step size", kr.new_step_size)
-        # tf.summary.scalar("decay rate", kr.decay_rate)
-        # tf.summary.scalar("error sum", kr.error_sum)
-
-    if callbacks:
-        return target_log_prob, [cb(*cs) for cb in callbacks]
-    return target_log_prob
+summary_writer = tf.summary.create_file_writer(log_dir)
 
 
 # %%
 step_size = tf.cast(1e-3, tf.float64)
-kernel = tfp.mcmc.NoUTurnSampler(real_target_log_prob_fn, step_size)
-adaptive_kernel = tfp.mcmc.DualAveragingStepSizeAdaptation(
-    kernel,
-    num_adaptation_steps=100,
-    # pkr: previous kernel results, ss: step size
-    step_size_setter_fn=lambda pkr, new_ss: pkr._replace(step_size=new_ss),
-    step_size_getter_fn=lambda pkr: pkr.step_size,
-    log_accept_prob_getter_fn=lambda pkr: pkr.log_accept_ratio,
-)
+n_adapt_steps = 100
 
 chain, trace, final_kernel_results = sample_chain(
     num_results=100,
     current_state=param_values,
-    kernel=adaptive_kernel,
+    kernel=get_nuts_kernel(real_target_log_prob_fn, step_size, n_adapt_steps),
     return_final_kernel_results=True,
-    trace_fn=trace_fn,
+    trace_fn=partial(trace_fn, summary_writer=summary_writer),
 )
 
 with open("../parameters/parameters-opt-hmc.json", "w") as f:
