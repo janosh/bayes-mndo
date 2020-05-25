@@ -1,18 +1,26 @@
-# Use this file by running rsync from the project's root directory with:
+# To sync relevant parts of this repo to CSD3, run rsync from the project's root directory with:
 # rsync -av --delete --include-from=hpc/rsync.include . csd3:bayes-mndo
 # Test by adding the --dry-run option.
 # Note: requires setting up csd3 as an ssh alias
+# -v: verbose
+# -a, --archive: sets all of the following flags (https://serverfault.com/a/141778)
+#   -r, --recursive: recurse into directories
+#   -l, --links: copy symlinks as symlinks
+#   -p, --perms: preserve permissions
+#   -t, --times: preserve modification times
+#   -g, --group: preserve group
+#   -o, --owner: preserve owner (super-user only)
+#   -D: same as --devices --specials
+#   --devices: preserve device files (super-user only)
 
-# Copy results back from hpc with
-# rsync -av csd3:bayes-mndo/results ~/
+--specials preserve special files
+
+# To sync back from CSD3 to local:
+# rsync -av --delete --include-from=hpc/rsync.include csd3:bayes-mndo ..
 
 - __pycache__
 - .DS_Store
-+ src
-+ src/**
-+ hpc
-+ hpc/**
-+ data
-+ data/**
-+ env.yml
-- *
+- .git
+- .vscode
+- data
+- mndo
