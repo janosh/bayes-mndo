@@ -31,9 +31,60 @@ fig.update_layout(height=700, title_text="Branin-Hoo function")
 xy, z_true = sample_branin_hoo(100)
 
 
-def target_log_prob_fn(param_vals):
-    z_pred = branin_hoo_factory(*param_vals)(xy)
-    return -tf.metrics.mse(z_true, z_pred)
+def penalty(params):
+    z_pred = branin_hoo_factory(*params)(xy)
+    # Normally we'd just return -tf.metrics.mse(z_true, z_pred). But to test if
+    # custom gradients are the reason HMC isn't accepting steps on MNDO, we
+    # explicitly avoid autodiff.
+    se = (z_true - z_pred) ** 2
+    return se.mean()
+
+
+def jacobian(params, dh=1e-5):
+    """
+    Args:
+        params: values for each Branin-Hoo param
+        dh: small value for numerical gradients
+    """
+    grad = np.zeros_like(params)
+
+    for i in range(len(params)):
+        params[i] += dh
+        forward = penalty(params)
+
+        params[i] -= 2 * dh
+        backward = penalty(params)
+
+        de = forward - backward
+        grad[i] = de / (2 * dh)
+
+        params[i] += dh  # undo in-place changes to params for next iteration
+    return grad
+
+
+# %%
+@tf.custom_gradient
+def custom_grad_target_log_prob_fn(*params):
+    log_likelihood = -penalty([x.numpy() for x in params])
+
+    def grad_fn(*dys):
+        grad = jacobian([x.numpy() for x in params])
+        return list(dys * grad)
+
+    return log_likelihood, grad_fn
+
+
+def target_log_prob_fn(params):
+    res = tf.py_function(custom_grad_target_log_prob_fn, inp=params, Tout=tf.float64)
+    # Avoid tripping up sample_chain due to loss of output shape in tf.py_function
+    # when used in a tf.function context. https://tinyurl.com/y9ttqdpt
+    res.set_shape(params[0].shape[:-1])  # assumes parameter is vector-valued
+    return res
+
+
+# def target_log_prob_fn(param_vals):
+#     z_pred = branin_hoo_factory(*param_vals)(xy)
+#     return -tf.metrics.mse(z_true, z_pred)
 
 
 # %%
@@ -45,16 +96,16 @@ summary_writer = tf.summary.create_file_writer(log_dir)
 # %%
 # Casting step_size and init_state needed due to TFP bug
 # https://github.com/tensorflow/probability/issues/904#issuecomment-624272845
-step_size = tf.cast(1e-2, tf.float64)
+step_size = tf.cast(1e-3, tf.float64)
 init_state = [v * 1.5 for v in branin_hoo_params.values()]
-n_adapt_steps = 20
+n_adapt_steps = 200
 
 chain, trace, final_kernel_results = sample_chain(
-    num_results=40,
+    num_results=100,
     current_state=tf.constant(init_state, tf.float64),
     kernel=get_nuts_kernel(target_log_prob_fn, step_size, n_adapt_steps),
     return_final_kernel_results=True,
-    # trace_fn=partial(trace_fn, summary_writer=summary_writer),
+    trace_fn=partial(trace_fn, summary_writer=summary_writer),
 )
 burnin, samples = chain[:n_adapt_steps], chain[n_adapt_steps:]
 
@@ -75,6 +126,3 @@ samples_plot = go.Scatter3d(x=xy[0], y=xy[1], z=z_true, mode="markers")
 fig = go.Figure(data=[*surfaces, samples_plot])
 title = "Branin-Hoo (bottom), initial surface (top), HMC final surface (middle)"
 fig.update_layout(height=700, title_text=title)
-
-
-# %%
