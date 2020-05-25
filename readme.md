@@ -18,7 +18,7 @@ The environment `mndo` was originally created by running the command:
 conda create -n mndo python=3.6 \
   && conda activate mndo \
   && pip install tensorflow tensorflow-probability rmsd \
-    pandas scikit-learn tqdm matplotlib pre-commit flake8 black
+    pandas scikit-learn tqdm matplotlib pre-commit flake8 black notebook plotly
 ```
 
 To delete the environment run `conda env remove -n mndo`.
@@ -27,7 +27,7 @@ To update all packages and reflect changes in this file use
 
 ```sh
 conda update --all \
-  && pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1  | xargs -n1 pip install -U \
+  && pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -n1 pip install -U \
   && conda env export --no-builds > env.yml
 ```
 
