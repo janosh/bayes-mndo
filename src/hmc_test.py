@@ -1,62 +1,57 @@
 # %%
+import os
 from datetime import datetime
 import numpy as np
 from functools import partial
 
 import tensorflow as tf
 
-from hmc_utils import sample_chain, trace_fn, get_nuts_kernel
+from hmc_utils import (
+    sample_chain,
+    trace_fn,
+    get_nuts_kernel,
+)
 from bo_bench import (
     branin_hoo_params,
     sample_branin_hoo,
     branin_hoo_factory,
     branin_hoo_fn,
 )
-import plotly.graph_objects as go
 
-
-# %%
-# Plot the Branin-Hoo surface
-xr = np.linspace(-5, 15, 21)
-yr = np.linspace(0, 10, 11)
-domain = np.stack(np.meshgrid(xr, yr), -1).reshape(-1, 2).T
-
-surface = go.Surface(x=xr, y=yr, z=branin_hoo_fn(domain).reshape(len(yr), -1))
-fig = go.Figure(data=[surface])
-fig.update_layout(height=700, title_text="Branin-Hoo function")
-
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 # %%
 # Generate random data set
 xy, z_true = sample_branin_hoo(100)
 
 
-def penalty(params):
+def penalty(*params):
     z_pred = branin_hoo_factory(*params)(xy)
     # Normally we'd just return -tf.metrics.mse(z_true, z_pred). But to test if
     # custom gradients are the reason HMC isn't accepting steps on MNDO, we
     # explicitly avoid autodiff.
     se = (z_true - z_pred) ** 2
-    return se.mean()
+    return tf.reduce_mean(se, axis=-1)
 
 
-def jacobian(params, dh=1e-5):
+def jacobian(*params, dh=1e-5):
     """
     Args:
         params: values for each Branin-Hoo param
         dh: small value for numerical gradients
     """
-    grad = np.zeros_like(params)
+    grad = [0] * len(params)
+    params = list(params)
 
-    for i in range(len(params)):
+    for i, _ in enumerate(params):
         params[i] += dh
-        forward = penalty(params)
+        forward = penalty(*params)
 
         params[i] -= 2 * dh
-        backward = penalty(params)
+        backward = penalty(*params)
 
         de = forward - backward
-        grad[i] = de / (2 * dh)
+        grad[i] = -de / (2 * dh)
 
         params[i] += dh  # undo in-place changes to params for next iteration
     return grad
@@ -65,16 +60,16 @@ def jacobian(params, dh=1e-5):
 # %%
 @tf.custom_gradient
 def custom_grad_target_log_prob_fn(*params):
-    log_likelihood = -penalty([x.numpy() for x in params])
+    log_likelihood = -penalty(*params)
 
     def grad_fn(*dys):
-        grad = jacobian([x.numpy() for x in params])
-        return list(dys * grad)
+        grad = jacobian(*params)
+        return grad
 
     return log_likelihood, grad_fn
 
 
-def target_log_prob_fn(params):
+def target_log_prob_fn(*params):
     res = tf.py_function(custom_grad_target_log_prob_fn, inp=params, Tout=tf.float64)
     # Avoid tripping up sample_chain due to loss of output shape in tf.py_function
     # when used in a tf.function context. https://tinyurl.com/y9ttqdpt
@@ -82,27 +77,31 @@ def target_log_prob_fn(params):
     return res
 
 
-# def target_log_prob_fn(param_vals):
-#     z_pred = branin_hoo_factory(*param_vals)(xy)
-#     return -tf.metrics.mse(z_true, z_pred)
-
-
-# %%
-now = datetime.now().strftime("%Y.%m.%d-%H:%M:%S")
-log_dir = f"runs/hmc-trace/{now}"
-summary_writer = tf.summary.create_file_writer(log_dir)
+def target_log_prob_fn_autodiff(param_vals):
+    z_pred = branin_hoo_factory(*param_vals)(xy)
+    return -tf.metrics.mse(z_true, z_pred)
 
 
 # %%
 # Casting step_size and init_state needed due to TFP bug
 # https://github.com/tensorflow/probability/issues/904#issuecomment-624272845
 step_size = tf.cast(1e-3, tf.float64)
-init_state = [v * 1.5 for v in branin_hoo_params.values()]
+init_state = [tf.constant(v * 1.5, tf.float64) for v in branin_hoo_params.values()]
 n_adapt_steps = 200
+
+# with tf.GradientTape() as tape:
+#     tape.watch(init_state)
+#     lp = target_log_prob_fn(*init_state)
+#     print(tape.gradient(lp, init_state))
+
+# %%
+now = datetime.now().strftime("%Y.%m.%d-%H:%M:%S")
+log_dir = f"runs/hmc-trace/{now}"
+summary_writer = tf.summary.create_file_writer(log_dir)
 
 chain, trace, final_kernel_results = sample_chain(
     num_results=100,
-    current_state=tf.constant(init_state, tf.float64),
+    current_state=init_state,
     kernel=get_nuts_kernel(target_log_prob_fn, step_size, n_adapt_steps),
     return_final_kernel_results=True,
     trace_fn=partial(trace_fn, summary_writer=summary_writer),
@@ -111,18 +110,18 @@ burnin, samples = chain[:n_adapt_steps], chain[n_adapt_steps:]
 
 
 # %%
-plot_funcs = [
-    [branin_hoo_fn, "Electric"],
-    [branin_hoo_factory(*init_state), "Viridis"],  # default colorscale
-    [branin_hoo_factory(*chain[-1].numpy()), "Blues"],
-]
-surfaces = [
-    go.Surface(
-        x=xr, y=yr, z=fn(domain).reshape(len(yr), -1), colorscale=cs, showscale=False
-    )
-    for fn, cs in plot_funcs
-]
-samples_plot = go.Scatter3d(x=xy[0], y=xy[1], z=z_true, mode="markers")
-fig = go.Figure(data=[*surfaces, samples_plot])
-title = "Branin-Hoo (bottom), initial surface (top), HMC final surface (middle)"
-fig.update_layout(height=700, title_text=title)
+# plot_funcs = [
+#     [branin_hoo_fn, "Electric"],
+#     [branin_hoo_factory(*init_state), "Viridis"],  # default colorscale
+#     [branin_hoo_factory(*chain[-1].numpy()), "Blues"],
+# ]
+# surfaces = [
+#     go.Surface(
+#         x=xr, y=yr, z=fn(domain).reshape(len(yr), -1), colorscale=cs, showscale=False
+#     )
+#     for fn, cs in plot_funcs
+# ]
+# samples_plot = go.Scatter3d(x=xy[0], y=xy[1], z=z_true, mode="markers")
+# fig = go.Figure(data=[*surfaces, samples_plot])
+# title = "Branin-Hoo (bottom), initial surface (top), HMC final surface (middle)"
+# fig.update_layout(height=700, title_text=title)

@@ -45,7 +45,7 @@ def jacobian(param_list, **kwargs):
         dh: small value for numerical gradients
     """
     param_list = list(param_list)
-    grad = np.zeros_like(param_list)
+    grad = [0] * len(param_list)
     dh = kwargs.get("dh", 1e-5)
 
     for i in trange(len(param_list)):
@@ -77,7 +77,8 @@ def jacobian_parallel(param_list, dh=1e-5, n_procs=2, **kwargs):
 
     results = mndo.numerical_jacobian(param_list, n_procs=n_procs, dh=dh, **kwargs)
 
-    grad = np.zeros_like(param_list)
+    # grad = np.zeros_like(param_list)
+    grad = [0] * len(param_list)
 
     for i in range(len(param_list)):
 
