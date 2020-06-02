@@ -11,7 +11,7 @@ from objective import jacobian, jacobian_parallel, penalty
 
 
 def minimize_params_scipy(
-    mols_atoms, mols_coords, ref_energies, dh=1e-5, n_procs=2, method="PM3",
+    mols_atoms, mols_coords, ref_energies, dh=1e-5, n_procs=2, method="MNDO",
 ):
     filename = "_tmp_optimizer"
     mndo.write_tmp_optimizer(mols_atoms, mols_coords, filename, method)
@@ -24,11 +24,21 @@ def minimize_params_scipy(
         method,
     )
 
-    with open("../parameters/parameters-mndo-mean.json") as file:
-        start_params = json.loads(file.read())
+    # with open("../parameters/parameters-pm3.json") as file:
+    #     # with open("../parameters/parameters-mndo-mean.json") as file:
+    #     start_params = json.loads(file.read())
 
-    param_keys, param_values = prepare_data(mols_atoms, start_params)
-    # # param_values = [np.random.normal() for _ in param_keys]
+    with open("../parameters/parameters-mndo-mean.json", "r") as file:
+        raw_json = file.read()
+        mean_params = json.loads(raw_json)
+
+    with open("../parameters/parameters-mndo-std.json", "r") as file:
+        raw_json = file.read()
+        scale_params = json.loads(raw_json)
+
+    # param_keys, param_values = prepare_data(mols_atoms, start_params)
+    param_keys, _ = prepare_data(mols_atoms, mean_params)
+    param_values = [np.random.normal() for _ in param_keys]
     # param_values = [0.0 for _ in param_keys]
 
     ps = [param_values]
@@ -44,6 +54,9 @@ def minimize_params_scipy(
         "n_procs": n_procs,
         "dh": dh,
         "ref_props": ref_energies,
+        "mean_params": mean_params,
+        "scale_params": scale_params,
+        "binary": "/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary",
     }
 
     try:
@@ -51,8 +64,8 @@ def minimize_params_scipy(
             partial(penalty, **kwargs),  # objective function
             param_values,  # initial condition
             method="L-BFGS-B",
-            # jac=partial(jacobian, **kwargs),
-            jac=partial(jacobian_parallel, **kwargs),
+            jac=partial(jacobian, **kwargs),
+            # jac=partial(jacobian_parallel, **kwargs),
             options={"maxiter": 1000, "disp": True},
             callback=reporter,
         )
@@ -67,6 +80,11 @@ def minimize_params_scipy(
     end_params = {atom_type: {} for atom_type, _ in param_keys}
     for (atom_type, prop), param in zip(param_keys, param_values):
         end_params[atom_type][prop] = param
+
+    for atomtype in end_params:
+        p, s, d = end_params[atomtype], scale_params[atomtype], mean_params[atomtype]
+        for key in p:
+            end_params[atomtype][key] = p[key] * s[key] + d[key]
 
     return end_params
 

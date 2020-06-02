@@ -31,9 +31,13 @@ def penalty(param_list, param_keys=None, filename=None, **kwargs):
         ref_energies: np.array of ground truth atomic energies
         filename: file containing list of molecules for mndo calculation
     """
-    mndo.set_params(param_list, param_keys)
+    mean_params = kwargs["mean_params"]
+    scale_params = kwargs["scale_params"]
+    binary = kwargs["binary"]
 
-    props_list = mndo.calculate(filename)
+    mndo.set_params(param_list, param_keys, mean_params, scale_params)
+
+    props_list = mndo.calculate(binary, filename)
 
     return calc_err(props_list, **kwargs)
 
@@ -45,6 +49,7 @@ def jacobian(param_list, **kwargs):
         dh: small value for numerical gradients
     """
     param_list = list(param_list)
+    # grad = np.zeros_like(param_list)
     grad = [0] * len(param_list)
     dh = kwargs.get("dh", 1e-5)
 

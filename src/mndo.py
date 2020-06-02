@@ -115,13 +115,12 @@ def execute(cmd, filename, cwd):
         raise subprocess.CalledProcessError(return_code, cmd)
 
 
-def run_mndo_file(filename, cwd=None):
+def run_mndo_file(binary, filename, cwd=None):
     """
     Runs mndo on the given input file. Yields lists of lines for each
     molecule as the program completes.
     """
-    cmd = "/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary"
-    cmd = os.path.expanduser(cmd)
+    cmd = os.path.expanduser(binary)
     lines = execute(cmd, filename, cwd)
 
     molecule_lines = []
@@ -140,12 +139,12 @@ def run_mndo_file(filename, cwd=None):
             molecule_lines = []
 
 
-def calculate(filename, cwd=None):
+def calculate(binary, filename, cwd=None):
     """
     Collect sets of lines for each molecule as they become availiable
     and then call a parser to extract the dictionary of properties.
     """
-    calculations = run_mndo_file(filename, cwd)
+    calculations = run_mndo_file(binary, filename, cwd)
 
     props_list = []
 
@@ -214,7 +213,11 @@ def get_properties(lines):
     # ionization
     # idx = get_rev_index(lines, "IONIZATION ENERGY")
     idx = idx_keywords[2]
-    line = lines[idx]
+    # try:
+    #     line = lines[idx]
+    # except TypeError:
+    #     print("\n".join(lines))
+    #     exit()
     value = line.split()[-2]
     e_ion = float(value)  # ev
     props["e_ion"] = e_ion
@@ -252,40 +255,22 @@ def get_properties(lines):
     return props
 
 
-@lru_cache()
-def load_prior_dicts(
-    # default_path="../parameters/parameters-mndo-zero.json",
-    default_path="../parameters/parameters-mndo-mean.json",
-    # scale_path="../parameters/parameters-mndo-one.json",
-    scale_path="../parameters/parameters-mndo-std.json",
-):
-
-    with open(default_path, "r") as file:
-        raw_json = file.read()
-        default_dict = json.loads(raw_json)
-
-    with open(scale_path, "r") as file:
-        raw_json = file.read()
-        scale_dict = json.loads(raw_json)
-
-    return default_dict, scale_dict
-
-
-def set_params(param_list, param_keys, cwd=None):
+def set_params(param_list, param_keys, mean_params, scale_params, cwd=None):
     """
     Save the current model parameters to the mndo input file.
     """
     txt = ""
-    defaults, scales = load_prior_dicts()
 
     params = {key[0]: {} for key in param_keys}
     for (atom_type, prop), param in zip(param_keys, param_list):
         params[atom_type][prop] = param
 
     for atomtype in params:
-        p, s, d = params[atomtype], scales[atomtype], defaults[atomtype]
+        p, s, d = params[atomtype], scale_params[atomtype], mean_params[atomtype]
+        # p = params[atomtype]
         for key in p:
             val = p[key] * s[key] + d[key]
+            # val = p[key]
             txt += f"{key:8s} {atomtype:2s} {val:15.11f}\n"
 
     filename = "fort.14"
@@ -366,6 +351,9 @@ def worker(*args, **kwargs):
     scr = kwargs["scr"]
     filename = kwargs["filename"]
     param_keys = kwargs["param_keys"]
+    mean_params = kwargs["mean_params"]
+    scale_params = kwargs["scale_params"]
+    binary = kwargs["binary"]
 
     # Ensure unique directory
     scr = fix_dir_name(scr)
@@ -380,10 +368,10 @@ def worker(*args, **kwargs):
 
     # Set params in worker dir
     param_list = args[0]
-    set_params(param_list, param_keys, cwd=cwd)
+    set_params(param_list, param_keys, mean_params, scale_params, cwd=cwd)
 
     # Calculate properties
-    properties_list = calculate(filename, cwd=cwd)
+    properties_list = calculate(binary, filename, cwd=cwd)
 
     shutil.rmtree(cwd)
 
@@ -393,6 +381,9 @@ def worker(*args, **kwargs):
 def numerical_jacobian(
     param_list, dh=1e-5, n_procs=2, mndo_input=None, param_keys=None, **kwargs,
 ):
+    mean_params = kwargs["mean_params"]
+    scale_params = kwargs["scale_params"]
+    binary = kwargs["binary"]
 
     params_joblist = []
     dhs = np.zeros_like(param_list)
@@ -413,7 +404,14 @@ def numerical_jacobian(
     with open(scr + filename, "w") as f:
         f.write(mndo_input)
 
-    kwargs = {"scr": scr, "filename": filename, "param_keys": param_keys}
+    kwargs = {
+        "scr": scr,
+        "filename": filename,
+        "param_keys": param_keys,
+        "mean_params": mean_params,
+        "scale_params": scale_params,
+        "binary": binary,
+    }
 
     mapfunc = partial(worker, **kwargs)
 
@@ -442,7 +440,7 @@ def dump_default_params():
             json.dump(params, f, indent=4)
 
 
-def get_default_params(method):
+def get_default_params(binary, method):
     """
     Get the default parameters of a method
     """
@@ -460,7 +458,7 @@ def get_default_params(method):
     with open(filename, "w") as f:
         f.write(txt)
 
-    molecules = run_mndo_file(filename)
+    molecules = run_mndo_file(binary, filename)
 
     lines = next(molecules)
 

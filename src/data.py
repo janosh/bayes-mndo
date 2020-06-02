@@ -1,12 +1,16 @@
 import itertools
 
+import os
 import numpy as np
 import pandas as pd
 import rmsd
 
 
 def load_data(
-    data_file="../data/qm9-reference.csv", offset=110, query_size=100,
+    data_dir="../data/xyz/",
+    ref_file="../data/qm9-reference.csv",
+    offset=110,
+    query_size=100,
 ):
     """
     Inputs:
@@ -20,13 +24,13 @@ def load_data(
         charges: List of species charges for each molecule in query
         filenames: List of names for each reference
     """
-    reference = pd.read_csv(data_file, skiprows=range(1, offset), nrows=query_size)
+    reference = pd.read_csv(ref_file, skiprows=range(1, offset), nrows=query_size)
 
     atoms_list, coord_list, charges = [], [], []
     filenames = reference["name"]
 
     for filename in filenames:
-        filename = f"../data/xyz/{filename}.xyz"
+        filename = os.path.join(data_dir, f"{filename}.xyz")
         atoms, coords = rmsd.get_coordinates_xyz(filename)
 
         charges.append(0)

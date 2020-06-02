@@ -42,10 +42,34 @@ mndo_input = mndo.get_inputs(
 )
 
 # %%
+# Find param_keys for an example set of parameters
+# with open("../parameters/parameters-mndo-mean.json") as file:
+#     start_params = json.loads(file.read())
+
+with open("../parameters/parameters-mndo-mean.json", "r") as file:
+    raw_json = file.read()
+    mean_params = json.loads(raw_json)
+
+with open("../parameters/parameters-mndo-std.json", "r") as file:
+    raw_json = file.read()
+    scale_params = json.loads(raw_json)
+
+# param_keys, param_values = prepare_data(mols_atoms, start_params)
+param_keys, _ = prepare_data(mols_atoms, mean_params)
+# param_values = [tf.constant(x) for x in param_values]
+param_values = [tf.random.truncated_normal([], stddev=1.0) for _ in param_keys]
+
+# %%
 @tf.custom_gradient
 def target_log_prob_fn(*param_vals):
     log_likelihood = -penalty(
-        param_vals, param_keys, filename=tmp_molecule_file, ref_props=ref_energies
+        param_vals,
+        param_keys,
+        filename=tmp_molecule_file,
+        ref_props=ref_energies,
+        mean_params=mean_params,
+        scale_params=scale_params,
+        binary="/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary",
     )
 
     def grad_fn(*dys):
@@ -56,6 +80,9 @@ def target_log_prob_fn(*param_vals):
             dh=1e-5,
             # filename=tmp_molecule_file,
             ref_props=ref_energies,
+            mean_params=mean_params,
+            scale_params=scale_params,
+            binary="/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary",
         )
         return grad
 
@@ -71,24 +98,9 @@ def real_target_log_prob_fn(*param_vals):
 
 
 # %%
-
-
-# %%
-# Find param_keys for an example set of parameters
-with open("../parameters/parameters-mndo-mean.json") as file:
-    start_params = json.loads(file.read())
-
-# param_keys needed for mndo.set_params
-# param_values acts as initial condition for HMC kernel
-param_keys, param_values = prepare_data(mols_atoms, start_params)
-
-# %%
-step_size = tf.cast(1e-3, tf.float64)
+step_size = tf.cast(5e-3, tf.float64)
 n_adapt_steps = 100
-# param_values = [tf.constant(x) for x in param_values]
-param_values = [tf.random.truncated_normal([], stddev=1.0) for _ in param_keys]
 
-# %%
 # with tf.GradientTape() as tape:
 #     tape.watch(param_values)
 #     lp = real_target_log_prob_fn(*param_values)
@@ -100,21 +112,21 @@ log_dir = f"runs/hmc-trace/{now}"
 summary_writer = tf.summary.create_file_writer(log_dir)
 
 # %%
-# chain, trace, final_kernel_results = sample_chain(
-#     num_results=30,
-#     current_state=param_values,
-#     kernel=get_nuts_kernel(real_target_log_prob_fn, step_size, n_adapt_steps),
-#     return_final_kernel_results=True,
-#     trace_fn=partial(trace_fn_nuts, summary_writer=summary_writer),
-# )
-
 chain, trace, final_kernel_results = sample_chain(
     num_results=30,
     current_state=param_values,
-    kernel=get_hmc_kernel(real_target_log_prob_fn, step_size, n_adapt_steps),
+    kernel=get_nuts_kernel(real_target_log_prob_fn, step_size, n_adapt_steps),
     return_final_kernel_results=True,
-    trace_fn=partial(trace_fn_hmc, summary_writer=summary_writer),
+    trace_fn=partial(trace_fn_nuts, summary_writer=summary_writer),
 )
+
+# chain, trace, final_kernel_results = sample_chain(
+#     num_results=30,
+#     current_state=param_values,
+#     kernel=get_hmc_kernel(real_target_log_prob_fn, step_size, n_adapt_steps),
+#     return_final_kernel_results=True,
+#     trace_fn=partial(trace_fn_hmc, summary_writer=summary_writer),
+# )
 
 with open("../parameters/parameters-opt-hmc.json", "w") as f:
     json.dump([list(x) for x in chain], f)
