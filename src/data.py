@@ -9,7 +9,7 @@ import rmsd
 def load_data(
     data_dir="../data/xyz/",
     ref_file="../data/qm9-reference.csv",
-    offset=110,
+    offset=0,
     query_size=100,
 ):
     """

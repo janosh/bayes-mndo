@@ -23,7 +23,15 @@ def calc_err(props_list, ref_props=None, **kwargs):
     return err
 
 
-def penalty(param_list, param_keys=None, filename=None, **kwargs):
+def penalty(
+    param_list,
+    mean_params,
+    scale_params,
+    binary,
+    param_keys=None,
+    filename=None,
+    **kwargs
+):
     """
     Input:
         param_list: array of params for different atoms
@@ -31,10 +39,6 @@ def penalty(param_list, param_keys=None, filename=None, **kwargs):
         ref_energies: np.array of ground truth atomic energies
         filename: file containing list of molecules for mndo calculation
     """
-    mean_params = kwargs["mean_params"]
-    scale_params = kwargs["scale_params"]
-    binary = kwargs["binary"]
-
     mndo.set_params(param_list, param_keys, mean_params, scale_params)
 
     props_list = mndo.calculate(binary, filename)
@@ -47,10 +51,13 @@ def jacobian(param_list, **kwargs):
     Input:
         param_list: array of params for different atoms
         dh: small value for numerical gradients
+
+    NOTE as jacobian parallel works with 1 proc do we need jacobian?
     """
     param_list = list(param_list)
-    # grad = np.zeros_like(param_list)
-    grad = [0] * len(param_list)
+    grad = np.zeros_like(param_list)
+    # NOTE list version was needed for HMC code
+    # grad = [0] * len(param_list)
     dh = kwargs.get("dh", 1e-5)
 
     for i in trange(len(param_list)):
@@ -82,8 +89,9 @@ def jacobian_parallel(param_list, dh=1e-5, n_procs=2, **kwargs):
 
     results = mndo.numerical_jacobian(param_list, n_procs=n_procs, dh=dh, **kwargs)
 
-    # grad = np.zeros_like(param_list)
-    grad = [0] * len(param_list)
+    grad = np.zeros_like(param_list)
+    # NOTE list version was needed for HMC code
+    # grad = [0] * len(param_list)
 
     for i in range(len(param_list)):
 

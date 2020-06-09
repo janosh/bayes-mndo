@@ -3,7 +3,6 @@ from functools import partial
 
 import numpy as np
 from scipy.optimize import minimize
-from tqdm import trange
 
 import mndo
 from data import load_data, prepare_data
@@ -13,6 +12,7 @@ from objective import jacobian, jacobian_parallel, penalty
 def minimize_params_scipy(
     mols_atoms, mols_coords, ref_energies, dh=1e-5, n_procs=2, method="MNDO",
 ):
+    # NOTE we probably can refactor to remove the duplication of input files
     filename = "_tmp_optimizer"
     mndo.write_tmp_optimizer(mols_atoms, mols_coords, filename, method)
 
@@ -64,8 +64,8 @@ def minimize_params_scipy(
             partial(penalty, **kwargs),  # objective function
             param_values,  # initial condition
             method="L-BFGS-B",
-            jac=partial(jacobian, **kwargs),
-            # jac=partial(jacobian_parallel, **kwargs),
+            # jac=partial(jacobian, **kwargs),
+            jac=partial(jacobian_parallel, **kwargs),
             options={"maxiter": 1000, "disp": True},
             callback=reporter,
         )
@@ -90,7 +90,9 @@ def minimize_params_scipy(
 
 
 def main():
-    mols_atoms, mols_coords, _, _, reference = load_data(query_size=50)
+    # NOTE choosing offest 0 puts C2H2 in training set which has
+    # the strange issue with not giving ionisation energy.
+    mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=110)
     ref_energies = reference.iloc[:, 1].tolist()
     ref_energies = np.array(ref_energies)
 

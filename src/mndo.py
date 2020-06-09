@@ -3,7 +3,7 @@ import multiprocessing as mp
 import os
 import shutil
 import subprocess
-from functools import lru_cache, partial
+from functools import partial
 
 import numpy as np
 from tqdm import tqdm
@@ -165,7 +165,8 @@ def get_properties(lines):
     return:
         dict of properties
 
-    Note to self we did remove some commented out sections, we can restore if needed
+    NOTE to selves we did remove some commented out sections, we can restore if needed
+    NOTE try except statements added to catch errors need to handle crashes with penalties
     """
 
     props = {}
@@ -188,9 +189,14 @@ def get_properties(lines):
         line = lines[idx]
 
     line = line.split()
-    value = line[1]
-    e_scf = float(value)
-    props["e_scf"] = e_scf
+    try:
+        value = line[1]
+        e_scf = float(value)
+        props["e_scf"] = e_scf
+    except IndexError:
+        print("\n".join(line))
+        print("did not converge")
+        exit()
 
     # Nuclear energy
     idx = idx_keywords[1]
@@ -213,14 +219,15 @@ def get_properties(lines):
     # ionization
     # idx = get_rev_index(lines, "IONIZATION ENERGY")
     idx = idx_keywords[2]
-    # try:
-    #     line = lines[idx]
-    # except TypeError:
-    #     print("\n".join(lines))
-    #     exit()
-    value = line.split()[-2]
-    e_ion = float(value)  # ev
-    props["e_ion"] = e_ion
+    try:
+        line = lines[idx]
+        value = line.split()[-2]
+        e_ion = float(value)  # ev
+        props["e_ion"] = e_ion
+    except TypeError:
+        print("\n".join(lines))
+        print("did not return ionisation energy")
+        exit()
 
     # input coords
     # idx = get_rev_index(lines, "INPUT GEOMETRY")
@@ -279,8 +286,8 @@ def set_params(param_list, param_keys, mean_params, scale_params, cwd=None):
         cwd = fix_dir_name(cwd)
         filename = cwd + filename
 
-    with open(filename, "w") as file:
-        file.write(txt)
+    with open(filename, "w") as f:
+        f.write(txt)
 
 
 def write_tmp_optimizer(atoms, coords, filename, method):
