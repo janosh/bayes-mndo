@@ -13,16 +13,8 @@ def minimize_params_scipy(
     mols_atoms, mols_coords, ref_energies, dh=1e-5, n_procs=2, method="MNDO",
 ):
     # NOTE we probably can refactor to remove the duplication of input files
-    filename = "_tmp_optimizer"
+    filename = "_tmp_molecules"
     mndo.write_tmp_optimizer(mols_atoms, mols_coords, filename, method)
-
-    mndo_input = mndo.get_inputs(
-        mols_atoms,
-        mols_coords,
-        np.zeros_like(mols_atoms),
-        range(len(mols_atoms)),
-        method,
-    )
 
     # with open("../parameters/parameters-pm3.json") as file:
     #     # with open("../parameters/parameters-mndo-mean.json") as file:
@@ -50,7 +42,6 @@ def minimize_params_scipy(
     kwargs = {
         "param_keys": param_keys,
         "filename": filename,
-        "mndo_input": mndo_input,
         "n_procs": n_procs,
         "dh": dh,
         "ref_props": ref_energies,
@@ -93,8 +84,7 @@ def main():
     # NOTE choosing offest 0 puts C2H2 in training set which has
     # the strange issue with not giving ionisation energy.
     mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=110)
-    ref_energies = reference.iloc[:, 1].tolist()
-    ref_energies = np.array(ref_energies)
+    ref_energies = reference["binding_energy"].values
 
     end_params = minimize_params_scipy(
         mols_atoms, mols_coords, ref_energies, method="MNDO"

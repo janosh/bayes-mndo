@@ -8,40 +8,12 @@ from functools import partial
 import numpy as np
 from tqdm import tqdm
 
-# fmt: off
-ATOMS = [
-    "h", "he",
-    "li", "be", "b", "c", "n", "o", "f", "ne",
-    "na", "mg", "al", "si", "p", "s", "cl", "ar",
-    "k", "ca", "sc", "ti", "v", "cr", "mn", "fe", "co", "ni", "cu",
-    "zn", "ga", "ge", "as", "se", "br", "kr",
-    "rb", "sr", "y", "zr", "nb", "mo", "tc", "ru", "rh", "pd", "ag",
-    "cd", "in", "sn", "sb", "te", "i", "xe",
-    "cs", "ba", "la", "ce", "pr", "nd", "pm", "sm", "eu", "gd", "tb", "dy",
-    "ho", "er", "tm", "yb", "lu", "hf", "ta", "w", "re", "os", "ir", "pt",
-    "au", "hg", "tl", "pb", "bi", "po", "at", "rn",
-    "fr", "ra", "ac", "th", "pa", "u", "np", "pu"
-]
-# fmt: on
 
-
-def convert_atom(atom, t=None):
-    """
-    convert atom from str2int or int2str
-    """
-
-    if t is None:
-        t = type(atom)
-        t = str(t)
-
-    if "str" in t:
-        atom = atom.lower()
-        idx = ATOMS.index(atom) + 1
-        return idx
-
-    else:
-        atom = ATOMS[atom - 1].capitalize()
-        return atom
+def get_index(lines, pattern):
+    for i, line in enumerate(lines):
+        if pattern in line:
+            return i
+    return None
 
 
 def get_indices(lines, pattern, stop_pattern=None):
@@ -59,16 +31,24 @@ def get_indices(lines, pattern, stop_pattern=None):
     return idxs
 
 
-def get_index(lines, pattern):
+def get_indexes_patterns(lines, patterns):
+
+    n_patterns = len(patterns)
+    i_patterns = list(range(n_patterns))
+
+    idxs = [None] * n_patterns
+
     for i, line in enumerate(lines):
-        if pattern in line:
-            return i
-    return None
 
+        for ip in i_patterns:
 
-def reverse_enum(lst):
-    for index in reversed(range(len(lst))):
-        yield index, lst[index]
+            pattern = patterns[ip]
+
+            if pattern in line:
+                idxs[ip] = i
+                i_patterns.remove(ip)
+
+    return idxs
 
 
 def get_rev_indices(lines, patterns):
@@ -78,12 +58,9 @@ def get_rev_indices(lines, patterns):
 
     idxs = [None] * n_patterns
 
-    for i, line in reverse_enum(lines):
-
+    for i, line in reversed(list(enumerate(lines))):
         for ip in i_patterns:
-
             pattern = patterns[ip]
-
             if pattern in line:
                 idxs[ip] = i
                 i_patterns.remove(ip)
@@ -165,14 +142,16 @@ def get_properties(lines):
     return:
         dict of properties
 
-    NOTE to selves we did remove some commented out sections, we can restore if needed
-    NOTE try except statements added to catch errors need to handle crashes with penalties
+    NOTE some commented out sections from ppqm for other properties were
+    removed for clarity, they can be restored from original code if we
+    start doing multi-objective optimisation.
     """
 
     props = {}
 
     keywords = [
-        "CORE HAMILTONIAN MATR",
+        # "CORE HAMILTONIAN MATR",  # high precision
+        "ELECTRONIC ENERGY",  # low precision
         "NUCLEAR ENERGY",
         "IONIZATION ENERGY",
         "INPUT GEOMETRY",
@@ -181,30 +160,83 @@ def get_properties(lines):
     idx_keywords = get_rev_indices(lines, keywords)
 
     # SCF energy
-    idx = idx_keywords[0]
-    idx -= 9
-    line = lines[idx]
-    if "SCF CONVERGENCE HAS BEE" in line:
-        idx -= 2
-        line = lines[idx]
+    # NOTE it will always find "CORE HAMILTONIAN MATR" therefore a better
+    # strategy might be to look for the second instance of "CORE HAMILTONIAN MATR"
+    # rather than the last.
+    # NOTE given we only get "NUCLEAR ENERGY" to 5 dp why do we not do the same
+    # here for the "ELECTRONIC ENERGY"? we don't gain anything from using different
+    # precisions given that we add them to get the net energy?
 
-    line = line.split()
-    try:
-        value = line[1]
+    # SCF energy - high precision
+    # idx = idx_keywords[0]
+    # if idx is None:
+    #     print("\n".join(line))
+    #     print("did not converge")
+    #     props["e_scf"] = np.nan
+    #     # exit()
+    # else:
+    #     idx -= 9
+    #     line = lines[idx]
+    #     # NOTE this an edge case correction
+    #     if "SCF CONVERGENCE HAS BEE" in line:
+    #         idx -= 2
+    #         line = lines[idx]
+
+    #     line = line.split()
+    #     try:
+    #         value = line[1]
+    #         e_scf = float(value)
+    #         props["e_scf"] = e_scf
+    #     except IndexError:
+    #         with open("failed", "w") as f:
+    #             f.write("\n".join(lines))
+    #         print("did not converge check failed for output")
+    #         exit()
+
+    # SCF energy - low precision
+    idx = idx_keywords[0]
+    if idx is None:
+        # with open("failed-scf", "w") as f:
+        #     f.write("\n".join(lines))
+        # print("check failed-scf")
+        # exit()
+        e_scf = np.nan
+    else:
+        line = lines[idx]
+        line = line.split()
+        value = line[2]
         e_scf = float(value)
-        props["e_scf"] = e_scf
-    except IndexError:
-        print("\n".join(line))
-        print("did not converge")
-        exit()
+    props["e_scf"] = e_scf  # ev
 
     # Nuclear energy
     idx = idx_keywords[1]
-    line = lines[idx]
-    line = line.split()
-    value = line[2]
-    e_nuc = float(value)
+    if idx is None:
+        # with open("failed-nuc", "w") as f:
+        #     f.write("\n".join(lines))
+        # print("check failed-nuc")
+        # exit()
+        e_nuc = np.nan
+    else:
+        line = lines[idx]
+        line = line.split()
+        value = line[2]
+        e_nuc = float(value)
     props["e_nuc"] = e_nuc  # ev
+
+    # ionization
+    # idx = get_rev_index(lines, "IONIZATION ENERGY")
+    idx = idx_keywords[2]
+    if idx is None:
+        # with open("failed-ion", "w") as f:
+        #     f.write("\n".join(lines))
+        # print("check failed-ion")
+        # exit()
+        e_ion = np.nan
+    else:
+        line = lines[idx]
+        value = line.split()[-2]
+        e_ion = float(value)  # ev
+    props["e_ion"] = e_ion
 
     # eisol
     eisol = {}
@@ -216,21 +248,8 @@ def get_properties(lines):
         value = line[2]
         eisol[atom] = float(value)  # ev
 
-    # ionization
-    # idx = get_rev_index(lines, "IONIZATION ENERGY")
-    idx = idx_keywords[2]
-    try:
-        line = lines[idx]
-        value = line.split()[-2]
-        e_ion = float(value)  # ev
-        props["e_ion"] = e_ion
-    except TypeError:
-        print("\n".join(lines))
-        print("did not return ionisation energy")
-        exit()
-
-    # input coords
-    # idx = get_rev_index(lines, "INPUT GEOMETRY")
+    # # input coords
+    # # idx = get_rev_index(lines, "INPUT GEOMETRY")
     idx = idx_keywords[3]
     idx += 6
     atoms = []
@@ -255,6 +274,8 @@ def get_properties(lines):
     # calculate energy
     e_iso = [eisol[a] for a in atoms]
     e_iso = np.sum(e_iso)
+
+    # total energy
     energy = e_nuc + e_scf - e_iso
 
     props["energy"] = energy
@@ -280,13 +301,13 @@ def set_params(param_list, param_keys, mean_params, scale_params, cwd=None):
             # val = p[key]
             txt += f"{key:8s} {atomtype:2s} {val:15.11f}\n"
 
-    filename = "fort.14"
+    param_file = "fort.14"
 
     if cwd is not None:
         cwd = fix_dir_name(cwd)
-        filename = cwd + filename
+        param_file = cwd + param_file
 
-    with open(filename, "w") as f:
+    with open(param_file, "w") as f:
         f.write(txt)
 
 
@@ -332,26 +353,6 @@ def fix_dir_name(name):
     return name
 
 
-def get_indexes_patterns(lines, patterns):
-
-    n_patterns = len(patterns)
-    i_patterns = list(range(n_patterns))
-
-    idxs = [None] * n_patterns
-
-    for i, line in enumerate(lines):
-
-        for ip in i_patterns:
-
-            pattern = patterns[ip]
-
-            if pattern in line:
-                idxs[ip] = i
-                i_patterns.remove(ip)
-
-    return idxs
-
-
 def worker(*args, **kwargs):
     """
     """
@@ -371,7 +372,7 @@ def worker(*args, **kwargs):
         os.mkdir(cwd)
 
     if not os.path.exists(cwd + filename):
-        shutil.copy2(scr + filename, cwd + filename)
+        shutil.copy2(filename, cwd + filename)
 
     # Set params in worker dir
     param_list = args[0]
@@ -385,33 +386,22 @@ def worker(*args, **kwargs):
     return properties_list
 
 
-def numerical_jacobian(
-    param_list, dh=1e-5, n_procs=2, mndo_input=None, param_keys=None, **kwargs,
+def calculate_parallel(
+    params_joblist,
+    param_keys,
+    mean_params,
+    scale_params,
+    filename,
+    binary,
+    n_procs=2,
+    mndo_input=None,
+    **kwargs,
 ):
-    mean_params = kwargs["mean_params"]
-    scale_params = kwargs["scale_params"]
-    binary = kwargs["binary"]
-
-    params_joblist = []
-    dhs = np.zeros_like(param_list)
-    for idx in range(len(param_list)):
-        dhs[idx] = dh
-        # forward
-        params_joblist.append(param_list + dhs)
-        # backward
-        params_joblist.append(param_list - dhs)
-        # reset dhs for next iter
-        dhs[idx] = 0
-
     scr = "_tmp_mndo_/"
     if not os.path.exists(scr):
         os.mkdir(scr)
 
-    filename = "_tmp_inputstr_"
-    with open(scr + filename, "w") as f:
-        f.write(mndo_input)
-
-    kwargs = {
+    worker_kwargs = {
         "scr": scr,
         "filename": filename,
         "param_keys": param_keys,
@@ -420,7 +410,7 @@ def numerical_jacobian(
         "binary": binary,
     }
 
-    mapfunc = partial(worker, **kwargs)
+    mapfunc = partial(worker, **worker_kwargs)
 
     p = mp.Pool(n_procs)
     # results = p.map(mapfunc, params_joblist)
@@ -430,6 +420,41 @@ def numerical_jacobian(
 
 
 # Utilities for extracting default parameters
+
+# fmt: off
+ATOMS = [
+    "h", "he",
+    "li", "be", "b", "c", "n", "o", "f", "ne",
+    "na", "mg", "al", "si", "p", "s", "cl", "ar",
+    "k", "ca", "sc", "ti", "v", "cr", "mn", "fe", "co", "ni", "cu",
+    "zn", "ga", "ge", "as", "se", "br", "kr",
+    "rb", "sr", "y", "zr", "nb", "mo", "tc", "ru", "rh", "pd", "ag",
+    "cd", "in", "sn", "sb", "te", "i", "xe",
+    "cs", "ba", "la", "ce", "pr", "nd", "pm", "sm", "eu", "gd", "tb", "dy",
+    "ho", "er", "tm", "yb", "lu", "hf", "ta", "w", "re", "os", "ir", "pt",
+    "au", "hg", "tl", "pb", "bi", "po", "at", "rn",
+    "fr", "ra", "ac", "th", "pa", "u", "np", "pu"
+]
+# fmt: on
+
+
+def convert_atom(atom, t=None):
+    """
+    convert atom from str2int or int2str
+    """
+
+    if t is None:
+        t = type(atom)
+        t = str(t)
+
+    if "str" in t:
+        atom = atom.lower()
+        idx = ATOMS.index(atom) + 1
+        return idx
+
+    else:
+        atom = ATOMS[atom - 1].capitalize()
+        return atom
 
 
 def dump_default_params():

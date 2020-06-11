@@ -13,24 +13,21 @@ def calc_err(props_list, ref_props=None, **kwargs):
     calc_props = np.array([props["energy"] for props in props_list])
     diff = ref_props - calc_props
 
-    # ASK: What does this 700.0 do?
-    idxs = np.argwhere(np.isnan(diff))
-    diff[idxs] = 700.0
+    err = np.nanmean((diff ** 2))
+    # Penalise the loss surface according to the number of non-converged
+    # calculations. Currently we have a relatively naive choice of penalty.
+    # it might be possible to design a smarter scheme
+    n_failed = np.isnan(diff).sum()
+    reg = 13 * 666.0 * n_failed
 
-    err = (diff ** 2).mean()
-    # err = np.abs(diff).mean()
+    # if n_failed > 0:
+    #     print(n_failed)
 
-    return err
+    return err + reg
 
 
 def penalty(
-    param_list,
-    mean_params,
-    scale_params,
-    binary,
-    param_keys=None,
-    filename=None,
-    **kwargs
+    param_list, param_keys, mean_params, scale_params, binary, filename, **kwargs
 ):
     """
     Input:
@@ -46,7 +43,7 @@ def penalty(
     return calc_err(props_list, **kwargs)
 
 
-def jacobian(param_list, **kwargs):
+def jacobian(param_list, dh, **kwargs):
     """
     Input:
         param_list: array of params for different atoms
@@ -56,9 +53,6 @@ def jacobian(param_list, **kwargs):
     """
     param_list = list(param_list)
     grad = np.zeros_like(param_list)
-    # NOTE list version was needed for HMC code
-    # grad = [0] * len(param_list)
-    dh = kwargs.get("dh", 1e-5)
 
     for i in trange(len(param_list)):
         param_list[i] += dh
@@ -75,6 +69,22 @@ def jacobian(param_list, **kwargs):
     return grad
 
 
+def penalty_parallel(params_joblist, n_procs=2, **kwargs):
+    """
+    Input:
+        param_list: array of params for different atoms
+        param_keys: list of (atom_type, key) tuples for param_list
+        ref_energies: np.array of ground truth atomic energies
+        filename: file containing list of molecules for mndo calculation
+    """
+    # maximum number of processes should be number of samples per batch
+    n_procs = min(n_procs, 2 * len(params_joblist))
+
+    props_lists = mndo.calculate_parallel(params_joblist, n_procs=n_procs, **kwargs)
+
+    return np.array([[calc_err(props_list, **kwargs)] for props_list in props_lists])
+
+
 def jacobian_parallel(param_list, dh=1e-5, n_procs=2, **kwargs):
     """
     Input:
@@ -87,11 +97,20 @@ def jacobian_parallel(param_list, dh=1e-5, n_procs=2, **kwargs):
     # maximum number of processes should be one per parameter
     n_procs = min(n_procs, 2 * len(param_list))
 
-    results = mndo.numerical_jacobian(param_list, n_procs=n_procs, dh=dh, **kwargs)
+    params_joblist = []
+    dhs = np.zeros_like(param_list)
+    for idx in range(len(param_list)):
+        dhs[idx] = dh
+        # forward
+        params_joblist.append(param_list + dhs)
+        # backward
+        params_joblist.append(param_list - dhs)
+        # reset dhs for next iter
+        dhs[idx] = 0
+
+    results = mndo.calculate_parallel(params_joblist, n_procs=n_procs, **kwargs)
 
     grad = np.zeros_like(param_list)
-    # NOTE list version was needed for HMC code
-    # grad = [0] * len(param_list)
 
     for i in range(len(param_list)):
 
