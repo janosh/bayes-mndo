@@ -21,6 +21,16 @@ conda create -n mndo python=3.6 \
     pandas scikit-learn tqdm matplotlib pre-commit flake8 black notebook plotly
 ```
 
+To use `turbo_optim` you will also need the modified turbo package which can be installed with:
+
+```
+conda activate mndo
+git clone https://github.com/CompRhys/TuRBO
+cd TuRBO
+python setup.py sdist
+pip install -e .
+```
+
 To delete the environment run `conda env remove -n mndo`.
 
 To update all packages and reflect changes in this file use
