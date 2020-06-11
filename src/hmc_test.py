@@ -8,7 +8,7 @@ import tensorflow as tf
 
 from hmc_utils import (
     sample_chain,
-    trace_fn,
+    trace_fn_nuts,
     get_nuts_kernel,
 )
 from bo_bench import (
@@ -40,8 +40,8 @@ def jacobian(*params, dh=1e-5):
         params: values for each Branin-Hoo param
         dh: small value for numerical gradients
     """
-    grad = [0] * len(params)
     params = list(params)
+    grad = np.zeros_like(params)
 
     for i, _ in enumerate(params):
         params[i] += dh
@@ -64,7 +64,7 @@ def custom_grad_target_log_prob_fn(*params):
 
     def grad_fn(*dys):
         grad = jacobian(*params)
-        return grad
+        return grad.tolist()
 
     return log_likelihood, grad_fn
 
@@ -104,24 +104,31 @@ chain, trace, final_kernel_results = sample_chain(
     current_state=init_state,
     kernel=get_nuts_kernel(target_log_prob_fn, step_size, n_adapt_steps),
     return_final_kernel_results=True,
-    trace_fn=partial(trace_fn, summary_writer=summary_writer),
+    trace_fn=partial(trace_fn_nuts, summary_writer=summary_writer),
 )
 burnin, samples = chain[:n_adapt_steps], chain[n_adapt_steps:]
 
 
 # %%
-# plot_funcs = [
-#     [branin_hoo_fn, "Electric"],
-#     [branin_hoo_factory(*init_state), "Viridis"],  # default colorscale
-#     [branin_hoo_factory(*chain[-1].numpy()), "Blues"],
-# ]
-# surfaces = [
-#     go.Surface(
-#         x=xr, y=yr, z=fn(domain).reshape(len(yr), -1), colorscale=cs, showscale=False
-#     )
-#     for fn, cs in plot_funcs
-# ]
-# samples_plot = go.Scatter3d(x=xy[0], y=xy[1], z=z_true, mode="markers")
-# fig = go.Figure(data=[*surfaces, samples_plot])
-# title = "Branin-Hoo (bottom), initial surface (top), HMC final surface (middle)"
-# fig.update_layout(height=700, title_text=title)
+import plotly.graph_objects as go
+
+# Plot the Branin-Hoo surface
+xr = np.linspace(-5, 15, 21)
+yr = np.linspace(0, 10, 11)
+domain = np.stack(np.meshgrid(xr, yr), -1).reshape(-1, 2).T
+
+plot_funcs = [
+    [branin_hoo_fn, "Electric"],
+    [branin_hoo_factory(*init_state), "Viridis"],  # default colorscale
+    [branin_hoo_factory(*chain[-1].numpy()), "Blues"],
+]
+surfaces = [
+    go.Surface(
+        x=xr, y=yr, z=fn(domain).reshape(len(yr), -1), colorscale=cs, showscale=False
+    )
+    for fn, cs in plot_funcs
+]
+samples_plot = go.Scatter3d(x=xy[0], y=xy[1], z=z_true, mode="markers")
+fig = go.Figure(data=[*surfaces, samples_plot])
+title = "Branin-Hoo (bottom), initial surface (top), HMC final surface (middle)"
+fig.update_layout(height=700, title_text=title)
