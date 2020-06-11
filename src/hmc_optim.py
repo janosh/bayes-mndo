@@ -86,7 +86,7 @@ n_adapt_steps = 100
 
 # %%
 now = datetime.now().strftime("%Y.%m.%d-%H:%M:%S")
-log_dir = f"runs/hmc-trace/{now}"
+log_dir = f"runs/hmc-mndo/{now}"
 summary_writer = tf.summary.create_file_writer(log_dir)
 
 # %%
