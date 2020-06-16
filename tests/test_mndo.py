@@ -17,6 +17,14 @@ from src.chemhelp import units
 SCRDIR = "_tmp_test"
 
 
+def clean_scrach(dirname):
+
+    for f in glob.glob(scrdir + "/fort.*"):
+        os.remove(f)
+
+    return
+
+
 def setup_multi_xyz():
 
     values = []
@@ -143,9 +151,7 @@ def test_params_error():
         "mndo_cmd": "mndo" # set mndo path
     }
 
-    # Clean scr
-    for f in glob.glob(scrdir + "/fort.*"):
-        os.remove(f)
+    clean_scratch(scrdir)
 
     # Setup multiple molecules
     mols_atoms, mols_coords, mols_charges, mols_names = setup_multi_xyz()
