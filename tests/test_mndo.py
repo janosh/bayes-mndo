@@ -1,6 +1,11 @@
 
 import pytest
 from pathlib import Path
+import os
+import glob
+import json
+
+import rmsd
 
 from context import src
 
@@ -8,6 +13,35 @@ from src.chemhelp import mndo
 from src.chemhelp import misc
 from src.chemhelp import cheminfo
 from src.chemhelp import units
+
+SCRDIR = "_tmp_test"
+
+
+def setup_multi_xyz():
+
+    values = []
+
+    atoms_list = []
+    coord_list = []
+    charg_list = []
+    title_list = []
+
+    filenames = range(1, 8)
+    filenames = [f"{x:06d}" for x in filenames]
+    filenames = [f"dsgdb9nsd_{x}" for x in filenames]
+
+    XYZ_DIRNAME = "data/xyz/"
+
+    for filename in filenames:
+
+        filename_xyz = os.path.join(XYZ_DIRNAME, filename + ".xyz")
+        atoms, coord = rmsd.get_coordinates_xyz(filename_xyz)
+
+        atoms_list.append(atoms)
+        coord_list.append(coord)
+        charg_list.append(0)
+
+    return atoms_list, coord_list, charg_list, filenames
 
 
 def test_set_param():
@@ -99,7 +133,72 @@ TITLE {title}"""
     return
 
 
+def test_params_error():
+
+    scrdir = SCRDIR
+    filename = "_tmp_multimol"
+    method = "MNDO"
+
+    options = {
+        "mndo_cmd": "mndo" # set mndo path
+    }
+
+    # Clean scr
+    for f in glob.glob(scrdir + "/fort.*"):
+        os.remove(f)
+
+    # Setup multiple molecules
+    mols_atoms, mols_coords, mols_charges, mols_names = setup_multi_xyz()
+
+    # Write multi input file
+    mndo.write_input_file(
+        mols_atoms,
+        mols_coords,
+        mols_charges,
+        mols_names,
+        method,
+        os.path.join(scrdir, filename))
+
+    # Set parameters
+    with open("parameters/parameters-mndo-mean.json", "r") as file:
+        raw_json = file.read()
+        mean_params = json.loads(raw_json)
+
+    mndo.set_params(mean_params, cwd=scrdir)
+
+    # Calculate and collect the results
+    results = mndo.calculate(filename, cwd=scrdir, **options)
+
+    for properties in results:
+
+        assert properties is not None
+        assert type(properties) is dict
+        assert type(float(properties["energy"])) is float
+
+    return
+
+
+def test_params_parallel():
+
+    scrdir = SCRDIR
+    filename = "_tmp_multimol"
+    method = "MNDO"
+
+    options = {
+        "mndo_cmd": "mndo" # set mndo path
+    }
+
+    with open("parameters/parameters-mndo-mean.json", "r") as file:
+        raw_json = file.read()
+        mean_params = json.loads(raw_json)
+
+
+    return
+
+
 def main():
+
+    test_params_parallel()
 
     return
 
