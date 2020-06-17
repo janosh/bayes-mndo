@@ -1,8 +1,8 @@
 import numpy as np
 from tqdm import trange
 
-import mndo
-
+from chemhelp import mndo, units
+import pipelines
 
 def calc_err(props_list, ref_props=None, **kwargs):
     """
@@ -11,6 +11,10 @@ def calc_err(props_list, ref_props=None, **kwargs):
         ref_props: the target properties
     """
     calc_props = np.array([props["energy"] for props in props_list])
+
+    # Change the units from electron volt to kcal/mol
+    calc_props *= units.ev_to_kcalmol
+
     diff = ref_props - calc_props
 
     err = np.nanmean((diff ** 2))
@@ -22,6 +26,9 @@ def calc_err(props_list, ref_props=None, **kwargs):
 
     # if n_failed > 0:
     #     print(n_failed)
+
+    # TODO JCK Don't we need to take the sqrt of diff**2?
+    err = np.sqrt(err)
 
     return err + reg
 
@@ -36,11 +43,18 @@ def penalty(
         ref_energies: np.array of ground truth atomic energies
         filename: file containing list of molecules for mndo calculation
     """
-    mndo.set_params(param_list, param_keys, mean_params, scale_params)
 
-    props_list = mndo.calculate(binary, filename)
+    mndo_options = {}
+    if "scr" in kwargs:
+        mndo_options["scr"] = kwargs["scr"]
 
-    return calc_err(props_list, **kwargs)
+    pipelines.set_params(param_list, param_keys, mean_params, scale_params, **mndo_options)
+
+    props_list = pipelines.calculate(binary, filename, **mndo_options)
+
+    error = calc_err(props_list, **kwargs)
+
+    return error
 
 
 def jacobian(param_list, dh, **kwargs):
@@ -80,7 +94,7 @@ def penalty_parallel(params_joblist, n_procs=2, **kwargs):
     # maximum number of processes should be number of samples per batch
     n_procs = min(n_procs, 2 * len(params_joblist))
 
-    props_lists = mndo.calculate_parallel(params_joblist, n_procs=n_procs, **kwargs)
+    props_lists = pipelines.calculate_parallel(params_joblist, n_procs=n_procs, **kwargs)
 
     return np.array([[calc_err(props_list, **kwargs)] for props_list in props_lists])
 
@@ -108,7 +122,7 @@ def jacobian_parallel(param_list, dh=1e-5, n_procs=2, **kwargs):
         # reset dhs for next iter
         dhs[idx] = 0
 
-    results = mndo.calculate_parallel(params_joblist, n_procs=n_procs, **kwargs)
+    results = pipelines.calculate_parallel(params_joblist, n_procs=n_procs, **kwargs)
 
     grad = np.zeros_like(param_list)
 

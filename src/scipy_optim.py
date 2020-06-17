@@ -1,12 +1,16 @@
 import json
 from functools import partial
 
+from pathlib import Path
+import os
+
 import numpy as np
 from scipy.optimize import minimize
 
-import mndo
 from data import load_data, prepare_data
 from objective import jacobian, jacobian_parallel, penalty
+
+from chemhelp import mndo, units
 
 
 def minimize_params_scipy(
@@ -14,7 +18,23 @@ def minimize_params_scipy(
 ):
     # NOTE we probably can refactor to remove the duplication of input files
     filename = "_tmp_molecules"
-    mndo.write_tmp_optimizer(mols_atoms, mols_coords, filename, method)
+    scrdir = "_tmp_optim"
+
+    Path(scrdir).mkdir(parents=True, exist_ok=True)
+
+    # TODO JCK At some point we need to evaluate non-zero molecules
+    n_molecules = len(mols_atoms)
+    mols_charges = np.zeros(n_molecules)
+    mols_names = np.arange(n_molecules)
+
+    mndo.write_input_file(
+        mols_atoms,
+        mols_coords,
+        mols_charges,
+        mols_names,
+        method,
+        os.path.join(scrdir,filename), read_params=True)
+
 
     # with open("../parameters/parameters-pm3.json") as file:
     #     # with open("../parameters/parameters-mndo-mean.json") as file:
@@ -47,26 +67,28 @@ def minimize_params_scipy(
         "ref_props": ref_energies,
         "mean_params": mean_params,
         "scale_params": scale_params,
-        "binary": "/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary",
+        # "binary": "/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary",
+        "binary": "mndo",
+        "scr": scrdir,
     }
 
-    try:
-        res = minimize(
-            partial(penalty, **kwargs),  # objective function
-            param_values,  # initial condition
-            method="L-BFGS-B",
-            # jac=partial(jacobian, **kwargs),
-            jac=partial(jacobian_parallel, **kwargs),
-            options={"maxiter": 1000, "disp": True},
-            callback=reporter,
-        )
-        param_values = res.x
-    except IndexError:
-        param_values = ps[-1]
-        pass
-    except KeyboardInterrupt:
-        param_values = ps[-1]
-        pass
+    # try:
+    res = minimize(
+        partial(penalty, **kwargs),  # objective function
+        param_values,  # initial condition
+        method="L-BFGS-B",
+        # jac=partial(jacobian, **kwargs),
+        jac=partial(jacobian_parallel, **kwargs),
+        options={"maxiter": 1000, "disp": True},
+        callback=reporter,
+    )
+    param_values = res.x
+    # except IndexError:
+    #     param_values = ps[-1]
+    #     pass
+    # except KeyboardInterrupt:
+    #     param_values = ps[-1]
+    #     pass
 
     end_params = {atom_type: {} for atom_type, _ in param_keys}
     for (atom_type, prop), param in zip(param_keys, param_values):
@@ -85,6 +107,9 @@ def main():
     # the strange issue with not giving ionisation energy.
     mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=110)
     ref_energies = reference["binding_energy"].values
+
+    # Switch from Hartree to KCal/Mol
+    ref_energies *= units.hartree_to_kcalmol
 
     end_params = minimize_params_scipy(
         mols_atoms, mols_coords, ref_energies, method="MNDO"
