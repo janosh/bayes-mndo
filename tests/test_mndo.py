@@ -1,4 +1,5 @@
 
+import copy
 import pytest
 from pathlib import Path
 import os
@@ -17,9 +18,9 @@ from src.chemhelp import units
 SCRDIR = "_tmp_test"
 
 
-def clean_scrach(dirname):
+def clean_scratch(dirname):
 
-    for f in glob.glob(scrdir + "/fort.*"):
+    for f in glob.glob(dirname + "/fort.*"):
         os.remove(f)
 
     return
@@ -64,7 +65,7 @@ def test_set_param():
     parameters["O"]["USS"] = 666.0
 
     # Set parameters
-    mndo.set_params(parameters, cwd=scrdir)
+    mndo.set_params(parameters, scr=scrdir)
 
     atoms = ['O','N','C','N','N','H']
 
@@ -83,7 +84,7 @@ def test_set_param():
     with open(str(Path(scrdir).joinpath(filename)), 'w') as f:
         f.write(inptxt)
 
-    calculations = mndo.run_mndo_file(filename, cwd=scrdir)
+    calculations = mndo.run_mndo_file(filename, scr=scrdir)
     calculations = list(calculations)
     lines = calculations[0]
     properties = mndo.get_properties(lines)
@@ -128,7 +129,7 @@ TITLE {title}"""
         f.write(inptxt)
 
     # Run mndo
-    calculations = mndo.run_mndo_file(filename, cwd=scrdir)
+    calculations = mndo.run_mndo_file(filename, scr=scrdir)
     calculations = list(calculations)
 
     lines = calculations[0]
@@ -170,10 +171,10 @@ def test_params_error():
         raw_json = file.read()
         mean_params = json.loads(raw_json)
 
-    mndo.set_params(mean_params, cwd=scrdir)
+    mndo.set_params(mean_params, scr=scrdir)
 
     # Calculate and collect the results
-    results = mndo.calculate(filename, cwd=scrdir, **options)
+    results = mndo.calculate(filename, scr=scrdir, **options)
 
     for properties in results:
 
@@ -186,6 +187,9 @@ def test_params_error():
 
 def test_params_parallel():
 
+    # Test on multi core
+    n_procs = 1
+
     scrdir = SCRDIR
     filename = "_tmp_multimol"
     method = "MNDO"
@@ -194,10 +198,37 @@ def test_params_parallel():
         "mndo_cmd": "mndo" # set mndo path
     }
 
+    # Prepare some parameters
     with open("parameters/parameters-mndo-mean.json", "r") as file:
         raw_json = file.read()
         mean_params = json.loads(raw_json)
 
+    parameter_list = []
+    for _ in range(200):
+        parameter_list.append(copy.deepcopy(mean_params))
+
+    # Clean
+    clean_scratch(scrdir)
+
+    # Set input file
+    mols_atoms, mols_coords, mols_charges, mols_names = setup_multi_xyz()
+
+    # Write multi input file
+    mndo.write_input_file(
+        mols_atoms,
+        mols_coords,
+        mols_charges,
+        mols_names,
+        method,
+        os.path.join(scrdir, filename))
+
+    results = mndo.calculate_parameters(filename, parameter_list, scr=scrdir, n_procs=n_procs)
+
+    for result in results:
+
+        assert type(result) is list
+        assert type(result[0]) is dict
+        assert "energy" in result[0]
 
     return
 
