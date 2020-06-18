@@ -1,5 +1,6 @@
 # %%
-from turbo import TurboM
+from turbo import Turbo1, TurboM
+import pandas as pd
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -11,7 +12,7 @@ from data import load_data, prepare_data
 from objective import penalty, penalty_parallel
 
 # %%
-mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=0)
+mols_atoms, mols_coords, _, _, reference = load_data(query_size=1000, offset=0)
 ref_energies = reference["binding_energy"].values
 
 method = "MNDO"
@@ -22,8 +23,8 @@ mndo.write_tmp_optimizer(mols_atoms, mols_coords, filename, method)
 #     # with open("../parameters/parameters-mndo-mean.json") as f:
 #     start_params = json.loads(f.read())
 
-with open("../parameters/parameters-opt-turbo.json", "r") as f:
-    # with open("../parameters/parameters-mndo-mean.json", "r") as f:
+# with open("../parameters/parameters-opt-turbo-long.json", "r") as f:
+with open("../parameters/parameters-mndo-mean.json", "r") as f:
     raw_json = f.read()
     mean_params = json.loads(raw_json)
 
@@ -48,8 +49,8 @@ class MNDO:
     def __init__(self, kwargs):
         self.kwargs = kwargs
         self.dim = len(kwargs["param_keys"])
-        self.lb = -1.5 * np.ones(self.dim)
-        self.ub = 1.5 * np.ones(self.dim)
+        self.lb = -3 * np.ones(self.dim)
+        self.ub = 3 * np.ones(self.dim)
         assert isinstance(kwargs["n_procs"], int) and kwargs["n_procs"] > 0
         self.n_procs = kwargs["n_procs"]
 
@@ -71,16 +72,32 @@ class MNDO:
 f = MNDO(kwargs)
 
 # %%
-turbo_m = TurboM(
+# turbo = TurboM(
+#     f=f,  # Handle to objective function
+#     lb=f.lb,  # Numpy array specifying lower bounds
+#     ub=f.ub,  # Numpy array specifying upper bounds
+#     n_init=10,  # Number of initial bounds from an Symmetric Latin hypercube design
+#     max_evals=1000,  # Maximum number of evaluations
+#     n_trust_regions=5,  # Number of trust regions
+#     batch_size=10,  # How large batch size TuRBO uses
+#     verbose=True,  # Print information from each batch
+#     use_ard=True,  # Set to true if you want to use ARD for the GP kernel
+#     max_cholesky_size=2000,  # When we switch from Cholesky to Lanczos
+#     n_training_steps=50,  # Number of steps of ADAM to learn the hypers
+#     min_cuda=1024,  # Run on the CPU for small datasets
+#     device="cpu",  # "cpu" or "cuda"
+#     dtype="float64",  # float64 or float32
+# )
+
+turbo = Turbo1(
     f=f,  # Handle to objective function
     lb=f.lb,  # Numpy array specifying lower bounds
     ub=f.ub,  # Numpy array specifying upper bounds
-    n_init=10,  # Number of initial bounds from an Symmetric Latin hypercube design
+    n_init=20,  # Number of initial bounds from an Latin hypercube design
     max_evals=1000,  # Maximum number of evaluations
-    n_trust_regions=5,  # Number of trust regions
     batch_size=10,  # How large batch size TuRBO uses
     verbose=True,  # Print information from each batch
-    use_ard=True,  # Set to true if you want to use ARD for the GP kernel
+    use_ard=False,  # Set to true if you want to use ARD for the GP kernel
     max_cholesky_size=2000,  # When we switch from Cholesky to Lanczos
     n_training_steps=50,  # Number of steps of ADAM to learn the hypers
     min_cuda=1024,  # Run on the CPU for small datasets
@@ -91,13 +108,20 @@ turbo_m = TurboM(
 # %%
 
 print("Optimise")
-turbo_m.optimize()
+turbo.optimize()
 
 # %%
-X = turbo_m.X  # Evaluated points
+X = turbo.X  # Evaluated points
 # NOTE we should hack the code so that we can see which trust regions each
 # point came from this would allow for the figure to be coloured by region
-fX = turbo_m.fX  # Observed values
+fX = turbo.fX  # Observed values
+
+param_names = ["-".join(tup) for tup in param_keys]
+samples = np.hstack((fX, X))
+df = pd.DataFrame(samples, columns=["penalty"] + param_names)
+df = df.sort_values(by=["penalty"])
+df.to_csv("turbo-samples.csv")
+
 ind_best = np.argmin(fX)
 f_best, x_best = fX[ind_best], X[ind_best, :]
 
@@ -112,6 +136,7 @@ for atomtype in end_params:
 
 with open("../parameters/parameters-opt-turbo.json", "w") as f:
     json.dump(end_params, f)
+
 
 # %%
 fig = plt.figure(figsize=(7, 5))

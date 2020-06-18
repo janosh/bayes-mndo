@@ -4,7 +4,7 @@ from tqdm import trange
 import mndo
 
 
-def calc_err(props_list, ref_props=None, **kwargs):
+def calc_err(props_list, ref_props=None, alpha=0.1, **kwargs):
     """
     Input:
         props_list: list of dictionaries of properties for each molecule
@@ -13,17 +13,19 @@ def calc_err(props_list, ref_props=None, **kwargs):
     calc_props = np.array([props["energy"] for props in props_list])
     diff = ref_props - calc_props
 
-    err = np.nanmean((diff ** 2))
+    err = np.sqrt(np.nanmean((diff ** 2)))
     # Penalise the loss surface according to the number of non-converged
     # calculations. Currently we have a relatively naive choice of penalty.
     # it might be possible to design a smarter scheme
     n_failed = np.isnan(diff).sum()
-    reg = 13 * 666.0 * n_failed
+    # reg = 13 * 666.0 * n_failed
+    # reg = 13 * n_failed
 
-    # if n_failed > 0:
-    #     print(n_failed)
+    penalty = err * (1 + (alpha * n_failed ** 2))
 
-    return err + reg
+    print(f"Penalty: {penalty} (Error: {err} + Failed: {n_failed})")
+
+    return penalty
 
 
 def penalty(
@@ -40,7 +42,9 @@ def penalty(
 
     props_list = mndo.calculate(binary, filename)
 
-    return calc_err(props_list, **kwargs)
+    penalty = calc_err(props_list, **kwargs)
+
+    return penalty
 
 
 def jacobian(param_list, dh, **kwargs):
@@ -78,11 +82,13 @@ def penalty_parallel(params_joblist, n_procs=2, **kwargs):
         filename: file containing list of molecules for mndo calculation
     """
     # maximum number of processes should be number of samples per batch
-    n_procs = min(n_procs, 2 * len(params_joblist))
+    n_procs = min(n_procs, len(params_joblist))
 
     props_lists = mndo.calculate_parallel(params_joblist, n_procs=n_procs, **kwargs)
 
-    return np.array([[calc_err(props_list, **kwargs)] for props_list in props_lists])
+    penalty = np.array([[calc_err(props_list, **kwargs)] for props_list in props_lists])
+
+    return penalty
 
 
 def jacobian_parallel(param_list, dh=1e-5, n_procs=2, **kwargs):
@@ -113,8 +119,8 @@ def jacobian_parallel(param_list, dh=1e-5, n_procs=2, **kwargs):
     grad = np.zeros_like(param_list)
 
     for i in range(len(param_list)):
-
-        forward_props, backward_props = results[2 * i : 2 * i + 2]
+        forward_props = results[2 * i]
+        backward_props = results[2 * i + 1]
 
         penalty_forward = calc_err(forward_props, **kwargs)
         penalty_backward = calc_err(backward_props, **kwargs)

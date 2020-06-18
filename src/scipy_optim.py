@@ -11,10 +11,8 @@ from objective import jacobian, jacobian_parallel, penalty
 
 # NOTE choosing offest 0 puts C2H2 in training set which has
 # the strange issue with not giving ionisation energy.
-mols_atoms, mols_coords, _, _, ref_energies = load_data(query_size=100, offset=110)
+mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=110)
 ref_energies = reference["binding_energy"].values
-
-end_params = minimize_params_scipy(mols_atoms, mols_coords, ref_energies, method="MNDO")
 
 dh = 1e-5
 n_procs = 2
