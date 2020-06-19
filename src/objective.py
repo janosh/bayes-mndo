@@ -44,7 +44,9 @@ def penalty(
         filename: file containing list of molecules for mndo calculation
     """
 
-    mndo_options = {}
+    mndo_options = {
+        "mndo_cmd": binary,
+    }
     if "scr" in kwargs:
         mndo_options["scr"] = kwargs["scr"]
 
@@ -52,7 +54,8 @@ def penalty(
         param_list, param_keys, mean_params, scale_params, **mndo_options
     )
 
-    props_list = pipelines.calculate(binary, filename, **mndo_options)
+    # NOTE JCK props_list is a generator
+    props_list = mndo.calculate_file(filename, **mndo_options)
 
     error = calc_err(props_list, **kwargs)
 

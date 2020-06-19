@@ -36,16 +36,14 @@ def set_params(param_list, param_keys, mean_params=None, scale_params=None, scr=
 
 def calculate(binary, filename, scr=None):
     """
-    Collect sets of lines for each molecule as they become availiable
+    Collect sets of lines for each molecule as they become available
     and then call a parser to extract the dictionary of properties.
+
+    DEPRECIATED
+
     """
-    calculations = mndo.calculate_file(filename, scr=scr, mndo_cmd=binary)
-
-    props_list = []
-
-    for mol_lines in calculations:
-        props = mndo.get_properties(mol_lines)
-        props_list.append(props)
+    props_list = mndo.calculate_file(filename, scr=scr, mndo_cmd=binary)
+    props_list = list(props_list) # NOTE that calculate_file returns an iterator
 
     return props_list
 
@@ -106,7 +104,10 @@ def worker(*args, **kwargs):
     set_params(param_list, param_keys, mean_params, scale_params, scr=cwd)
 
     # Calculate properties
-    properties_list = calculate(binary, filename, scr=cwd)
+    properties_list = mndo.calculate_file(filename, scr=cwd)
+
+    # NOTE JCK properties_list is a generator, so complete parsing on worker
+    properties_list = list(properties_list)
 
     shutil.rmtree(cwd)
 
