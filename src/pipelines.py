@@ -44,11 +44,7 @@ def calculate(binary, filename, scr=None):
     props_list = []
 
     for mol_lines in calculations:
-        try:
-            props = mndo.get_properties(mol_lines)
-        except:
-            props = dict()
-            props["energy"] = np.float("nan")
+        props = mndo.get_properties(mol_lines)
         props_list.append(props)
 
     return props_list
