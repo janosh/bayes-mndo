@@ -4,6 +4,7 @@ from tqdm import trange
 from chemhelp import mndo, units
 import pipelines
 
+
 def calc_err(props_list, ref_props=None, alpha=0.1, **kwargs):
     """
     Input:
@@ -27,10 +28,9 @@ def calc_err(props_list, ref_props=None, alpha=0.1, **kwargs):
 
     penalty = err * (1 + (alpha * n_failed ** 2))
 
-    # TODO JCK Don't we need to take the sqrt of diff**2?
-    err = np.sqrt(err)
+    print(f"Penalty: {penalty} (Error: {err} + Failed: {n_failed})")
 
-    return err + reg
+    return penalty
 
 
 def penalty(
@@ -48,7 +48,9 @@ def penalty(
     if "scr" in kwargs:
         mndo_options["scr"] = kwargs["scr"]
 
-    pipelines.set_params(param_list, param_keys, mean_params, scale_params, **mndo_options)
+    pipelines.set_params(
+        param_list, param_keys, mean_params, scale_params, **mndo_options
+    )
 
     props_list = pipelines.calculate(binary, filename, **mndo_options)
 
@@ -94,7 +96,9 @@ def penalty_parallel(params_joblist, n_procs=2, **kwargs):
     # maximum number of processes should be number of samples per batch
     n_procs = min(n_procs, len(params_joblist))
 
-    props_lists = pipelines.calculate_parallel(params_joblist, n_procs=n_procs, **kwargs)
+    props_lists = pipelines.calculate_parallel(
+        params_joblist, n_procs=n_procs, **kwargs
+    )
 
     penalty = np.array([[calc_err(props_list, **kwargs)] for props_list in props_lists])
 

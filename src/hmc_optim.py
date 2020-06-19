@@ -7,23 +7,45 @@ from functools import partial
 import numpy as np
 import tensorflow as tf
 
-import mndo
+import pathlib
+from chemhelp import mndo, units
+
+# import mndo
 from data import load_data, prepare_data
 from objective import jacobian, jacobian_parallel, penalty
 from hmc_utils import sample_chain, trace_fn_nuts, get_nuts_kernel
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-# %%
-# Load the reference data
-mols_atoms, mols_coords, charges, titles, reference = load_data(query_size=100)
-ref_energies = reference["binding_energy"].tolist()
+mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=110)
+ref_energies = reference["binding_energy"].values
 
-# NOTE we should refactor so that we don't need _tmp_molecules here
+# Switch from Hartree to KCal/Mol
+ref_energies *= units.hartree_to_kcalmol
+
+dh = 1e-5
+n_procs = 2
+method = "MNDO"
+
+# NOTE we probably can refactor to remove the duplication of input files
 filename = "_tmp_molecules"
-mndo_method = "MNDO"
-mndo.write_tmp_optimizer(
-    atoms=mols_atoms, coords=mols_coords, filename=filename, method=mndo_method
+scrdir = "_tmp_optim"
+
+pathlib.Path(scrdir).mkdir(parents=True, exist_ok=True)
+
+# TODO JCK At some point we need to evaluate non-zero molecules
+n_molecules = len(mols_atoms)
+mols_charges = np.zeros(n_molecules)
+mols_names = np.arange(n_molecules)
+
+mndo.write_input_file(
+    mols_atoms,
+    mols_coords,
+    mols_charges,
+    mols_names,
+    method,
+    os.path.join(scrdir, filename),
+    read_params=True,
 )
 
 # %%

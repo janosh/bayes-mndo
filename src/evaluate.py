@@ -1,19 +1,45 @@
-import json
 import numpy as np
+import pathlib
+import os
 
-import mndo
+import json
+
+# import mndo
 from data import load_data, prepare_data
 from objective import penalty
 
+from chemhelp import mndo, units
 
-# NOTE choosing offest 0 puts C2H2 in training set which has
-# the strange issue with not giving ionisation energy.
-mols_atoms, mols_coords, _, _, reference = load_data(query_size=9000, offset=1000)
+mols_atoms, mols_coords, _, _, reference = load_data(query_size=5000, offset=210)
 ref_energies = reference["binding_energy"].values
 
+# Switch from Hartree to KCal/Mol
+ref_energies *= units.hartree_to_kcalmol
+
+dh = 1e-5
+n_procs = 2
 method = "MNDO"
+
+# NOTE we probably can refactor to remove the duplication of input files
 filename = "_tmp_molecules"
-mndo.write_tmp_optimizer(mols_atoms, mols_coords, filename, method)
+scrdir = "_tmp_optim"
+
+pathlib.Path(scrdir).mkdir(parents=True, exist_ok=True)
+
+# TODO JCK At some point we need to evaluate non-zero molecules
+n_molecules = len(mols_atoms)
+mols_charges = np.zeros(n_molecules)
+mols_names = np.arange(n_molecules)
+
+mndo.write_input_file(
+    mols_atoms,
+    mols_coords,
+    mols_charges,
+    mols_names,
+    method,
+    os.path.join(scrdir, filename),
+    read_params=True,
+)
 
 with open("../parameters/parameters-opt-turbo.json", "r") as f:
     # with open("../parameters/parameters-opt-turbo-long.json", "r") as f:

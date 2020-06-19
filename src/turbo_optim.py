@@ -4,26 +4,53 @@ import pandas as pd
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import pathlib
+import os
 
 import json
-import mndo
+
+# import mndo
 from tqdm import tqdm
 from data import load_data, prepare_data
 from objective import penalty, penalty_parallel
 
-# %%
-mols_atoms, mols_coords, _, _, reference = load_data(query_size=1000, offset=0)
+from chemhelp import mndo, units
+
+mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=110)
 ref_energies = reference["binding_energy"].values
 
+# Switch from Hartree to KCal/Mol
+ref_energies *= units.hartree_to_kcalmol
+
+dh = 1e-5
+n_procs = 2
 method = "MNDO"
+
+# NOTE we probably can refactor to remove the duplication of input files
 filename = "_tmp_molecules"
-mndo.write_tmp_optimizer(mols_atoms, mols_coords, filename, method)
+scrdir = "_tmp_optim"
+
+pathlib.Path(scrdir).mkdir(parents=True, exist_ok=True)
+
+# TODO JCK At some point we need to evaluate non-zero molecules
+n_molecules = len(mols_atoms)
+mols_charges = np.zeros(n_molecules)
+mols_names = np.arange(n_molecules)
+
+mndo.write_input_file(
+    mols_atoms,
+    mols_coords,
+    mols_charges,
+    mols_names,
+    method,
+    os.path.join(scrdir, filename),
+    read_params=True,
+)
 
 # with open("../parameters/parameters-pm3.json") as f:
 #     # with open("../parameters/parameters-mndo-mean.json") as f:
 #     start_params = json.loads(f.read())
 
-# with open("../parameters/parameters-opt-turbo-long.json", "r") as f:
 with open("../parameters/parameters-mndo-mean.json", "r") as f:
     raw_json = f.read()
     mean_params = json.loads(raw_json)
@@ -97,7 +124,7 @@ turbo = Turbo1(
     max_evals=1000,  # Maximum number of evaluations
     batch_size=10,  # How large batch size TuRBO uses
     verbose=True,  # Print information from each batch
-    use_ard=False,  # Set to true if you want to use ARD for the GP kernel
+    use_ard=True,  # Set to true if you want to use ARD for the GP kernel
     max_cholesky_size=2000,  # When we switch from Cholesky to Lanczos
     n_training_steps=50,  # Number of steps of ADAM to learn the hypers
     min_cuda=1024,  # Run on the CPU for small datasets

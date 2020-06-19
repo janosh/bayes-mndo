@@ -1,4 +1,3 @@
-
 import json
 import multiprocessing as mp
 import os
@@ -12,11 +11,9 @@ from tqdm import tqdm
 from chemhelp import mndo
 
 
-def set_params(param_list, param_keys, mean_params, scale_params, scr="./"):
+def set_params(param_list, param_keys, mean_params=None, scale_params=None, scr="./"):
     """
-
     Translate from RhysJanosh format to Jimmy dictionary and write to disk.
-
     """
 
     # Create new param dict
@@ -25,12 +22,12 @@ def set_params(param_list, param_keys, mean_params, scale_params, scr="./"):
     for (atom_type, prop), param in zip(param_keys, param_list):
         params[atom_type][prop] = param
 
-    for atomtype in params:
-        p, s, d = params[atomtype], scale_params[atomtype], mean_params[atomtype]
-
-        for key in p:
-            val = p[key] * s[key] + d[key]
-            params[atom_type][key] = val
+    if mean_params and scale_params:
+        for atom_type in params:
+            p, s, d = params[atom_type], scale_params[atom_type], mean_params[atom_type]
+            for key in p:
+                val = p[key] * s[key] + d[key]
+                params[atom_type][key] = val
 
     mndo.set_params(params, scr=scr)
 
@@ -66,10 +63,9 @@ def calculate_parallel(
     binary,
     n_procs=2,
     mndo_input=None,
-    scr="_tmp_mndo_",
+    scr="_tmp_optim",
     **kwargs,
 ):
-
 
     worker_kwargs = {
         "scr": scr,
@@ -107,7 +103,7 @@ def worker(*args, **kwargs):
         os.mkdir(cwd)
 
     if not os.path.exists(os.path.join(cwd, filename)):
-        shutil.copy2(os.path.join(scr,filename), os.path.join(cwd,filename))
+        shutil.copy2(os.path.join(scr, filename), os.path.join(cwd, filename))
 
     # Set params in worker dir
     param_list = args[0]
