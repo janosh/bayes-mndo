@@ -1,14 +1,12 @@
-import numpy as np
-import pathlib
-import os
-
 import json
+import os
+import pathlib
 
-# import mndo
-from data import load_data, prepare_data
-from objective import penalty
+import numpy as np
 
 from chemhelp import mndo, units
+from data import load_data, prepare_data
+from objective import penalty
 
 mols_atoms, mols_coords, _, _, reference = load_data(query_size=5000, offset=210)
 ref_energies = reference["binding_energy"].values

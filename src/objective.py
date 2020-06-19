@@ -1,8 +1,8 @@
 import numpy as np
 from tqdm import trange
 
-from chemhelp import mndo, units
 import pipelines
+from chemhelp import mndo, units
 
 
 def calc_err(props_list, ref_props=None, alpha=0.1, **kwargs):

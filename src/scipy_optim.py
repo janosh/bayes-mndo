@@ -1,16 +1,14 @@
 import json
-from functools import partial
-
-from pathlib import Path
 import os
+from functools import partial
+from pathlib import Path
 
 import numpy as np
 from scipy.optimize import minimize
 
-from data import load_data, prepare_data
-from objective import jacobian, jacobian_parallel, penalty
-
 from chemhelp import mndo, units
+from data import load_data, prepare_data
+from objective import jacobian_parallel, penalty
 
 mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=110)
 ref_energies = reference["binding_energy"].values

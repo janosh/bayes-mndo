@@ -1,5 +1,4 @@
 # %%
-from turbo import Turbo1, TurboM
 import pandas as pd
 import numpy as np
 import matplotlib
@@ -9,7 +8,7 @@ import os
 
 import json
 
-# import mndo
+from turbo import Turbo1
 from tqdm import tqdm
 from data import load_data, prepare_data
 from objective import penalty, penalty_parallel

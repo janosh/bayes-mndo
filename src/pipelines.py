@@ -1,8 +1,6 @@
-import json
 import multiprocessing as mp
 import os
 import shutil
-import subprocess
 from functools import partial
 
 import numpy as np
@@ -36,7 +34,7 @@ def set_params(param_list, param_keys, mean_params=None, scale_params=None, scr=
 
 def calculate(binary, filename, scr=None):
     """
-    Collect sets of lines for each molecule as they become availiable
+    Collect sets of lines for each molecule as they become available
     and then call a parser to extract the dictionary of properties.
     """
     calculations = mndo.calculate_file(filename, scr=scr, mndo_cmd=binary)
@@ -115,4 +113,3 @@ def worker(*args, **kwargs):
     shutil.rmtree(cwd)
 
     return properties_list
-
