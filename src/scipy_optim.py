@@ -114,27 +114,39 @@ def main():
     end_params = minimize_params_scipy(
         mols_atoms, mols_coords, ref_energies, method="MNDO"
     )
-
-    with open("../parameters/parameters-opt-scipy.json", "w") as f:
-        json.dump(end_params, f)
-
-
-if __name__ == "__main__":
-    main()
+    param_values = res.x
+except IndexError:
+    param_values = ps[-1]
+    pass
+except KeyboardInterrupt:
+    param_values = ps[-1]
     pass
 
-    # # timing code
+end_params = {atom_type: {} for atom_type, _ in param_keys}
+for (atom_type, prop), param in zip(param_keys, param_values):
+    end_params[atom_type][prop] = param
 
-    # t = time.time()
-    # grad = jacobian(param_values, **kwargs)
-    # nm = np.linalg.norm(grad)
-    # secs = time.time() - t
-    # print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
+for atomtype in end_params:
+    p, s, d = end_params[atomtype], scale_params[atomtype], mean_params[atomtype]
+    for key in p:
+        end_params[atomtype][key] = p[key] * s[key] + d[key]
 
-    # t = time.time()
-    # grad = jacobian_parallel(param_values, **kwargs)
-    # nm = np.linalg.norm(grad)
-    # secs = time.time() - t
-    # print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
+with open("../parameters/parameters-opt-scipy.json", "w") as f:
+    json.dump(end_params, f)
 
-    # exit()
+
+# # timing code
+
+# t = time.time()
+# grad = jacobian(param_values, **kwargs)
+# nm = np.linalg.norm(grad)
+# secs = time.time() - t
+# print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
+
+# t = time.time()
+# grad = jacobian_parallel(param_values, **kwargs)
+# nm = np.linalg.norm(grad)
+# secs = time.time() - t
+# print("penalty grad: {:10.2f} time: {:10.2f}".format(nm, secs))
+
+# exit()

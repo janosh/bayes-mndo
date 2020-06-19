@@ -286,7 +286,7 @@ def get_properties(lines):
     return props
 
 
-def set_params(param_list, param_keys, mean_params, scale_params, cwd=None):
+def set_params(param_list, param_keys, mean_params=None, scale_params=None, cwd=None):
     """
     Save the current model parameters to the mndo input file.
     """
@@ -296,13 +296,19 @@ def set_params(param_list, param_keys, mean_params, scale_params, cwd=None):
     for (atom_type, prop), param in zip(param_keys, param_list):
         params[atom_type][prop] = param
 
-    for atomtype in params:
-        p, s, d = params[atomtype], scale_params[atomtype], mean_params[atomtype]
-        # p = params[atomtype]
-        for key in p:
-            val = p[key] * s[key] + d[key]
-            # val = p[key]
-            txt += f"{key:8s} {atomtype:2s} {val:15.11f}\n"
+    # reparameterise according to prior
+    if mean_params and scale_params:
+        for atomtype in params:
+            p, s, d = params[atomtype], scale_params[atomtype], mean_params[atomtype]
+            for key in p:
+                val = p[key] * s[key] + d[key]
+                txt += f"{key:8s} {atomtype:2s} {val:15.11f}\n"
+    else:
+        for atomtype in params:
+            p = params[atomtype]
+            for key in p:
+                val = p[key]
+                txt += f"{key:8s} {atomtype:2s} {val:15.11f}\n"
 
     param_file = "fort.14"
 

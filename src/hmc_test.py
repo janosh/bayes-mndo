@@ -96,7 +96,7 @@ n_adapt_steps = 200
 
 # %%
 now = datetime.now().strftime("%Y.%m.%d-%H:%M:%S")
-log_dir = f"runs/hmc-trace/{now}"
+log_dir = f"runs/hmc-test/{now}"
 summary_writer = tf.summary.create_file_writer(log_dir)
 
 chain, trace, final_kernel_results = sample_chain(
