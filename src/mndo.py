@@ -9,6 +9,9 @@ import numpy as np
 from tqdm import tqdm
 
 
+# DEPRECIATED!!!
+
+
 def get_index(lines, pattern):
     for i, line in enumerate(lines):
         if pattern in line:
