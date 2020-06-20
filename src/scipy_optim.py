@@ -1,7 +1,7 @@
 import json
 import os
 from functools import partial
-from pathlib import Path
+import pathlib
 
 import numpy as np
 from scipy.optimize import minimize
@@ -10,7 +10,7 @@ from chemhelp import mndo, units
 from data import load_data, prepare_data
 from objective import jacobian_parallel, penalty
 
-mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=110)
+mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=0)
 ref_energies = reference["binding_energy"].values
 
 # Switch from Hartree to KCal/Mol
@@ -24,7 +24,7 @@ method = "MNDO"
 filename = "_tmp_molecules"
 scrdir = "_tmp_optim"
 
-Path(scrdir).mkdir(parents=True, exist_ok=True)
+pathlib.Path(scrdir).mkdir(parents=True, exist_ok=True)
 
 # TODO JCK At some point we need to evaluate non-zero molecules
 n_molecules = len(mols_atoms)
@@ -41,16 +41,17 @@ mndo.write_input_file(
     read_params=True,
 )
 
-# with open("../parameters/parameters-pm3.json") as file:
-#     # with open("../parameters/parameters-mndo-mean.json") as file:
+# with open("../parameters/parameters-pm3.json") as f:
+#     # with open("../parameters/parameters-mndo-mean.json") as f:
 #     start_params = json.loads(file.read())
 
-with open("../parameters/parameters-mndo-mean.json", "r") as file:
-    raw_json = file.read()
+with open("../parameters/parameters-opt-scipy.json", "r") as f:
+    # with open("../parameters/parameters-mndo-mean.json", "r") as f:
+    raw_json = f.read()
     mean_params = json.loads(raw_json)
 
-with open("../parameters/parameters-mndo-std.json", "r") as file:
-    raw_json = file.read()
+with open("../parameters/parameters-mndo-std.json", "r") as f:
+    raw_json = f.read()
     scale_params = json.loads(raw_json)
 
 # param_keys, param_values = prepare_data(mols_atoms, start_params)
@@ -74,28 +75,22 @@ kwargs = {
     "ref_props": ref_energies,
     "mean_params": mean_params,
     "scale_params": scale_params,
-    # "binary": "/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary",
-    "binary": "mndo",
+    "binary": "/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary",
+    # "binary": "mndo",
     "scr": scrdir,
 }
 
-# try:
 res = minimize(
     partial(penalty, **kwargs),  # objective function
     param_values,  # initial condition
     method="L-BFGS-B",
     # jac=partial(jacobian, **kwargs),
     jac=partial(jacobian_parallel, **kwargs),
-    options={"maxiter": 1000, "disp": True},
+    options={"maxiter": 10, "disp": True},
     callback=reporter,
 )
 param_values = res.x
-# except IndexError:
-#     param_values = ps[-1]
-#     pass
-# except KeyboardInterrupt:
-#     param_values = ps[-1]
-#     pass
+
 
 end_params = {atom_type: {} for atom_type, _ in param_keys}
 for (atom_type, prop), param in zip(param_keys, param_values):

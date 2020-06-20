@@ -9,7 +9,14 @@ from tqdm import tqdm
 from chemhelp import mndo
 
 
-def set_params(param_list, param_keys, mean_params=None, scale_params=None, scr="./"):
+def set_params(
+    param_list,
+    param_keys,
+    mean_params=None,
+    scale_params=None,
+    scr="./",
+    ignore_keys=[],
+):
     """
     Translate from RhysJanosh format to Jimmy dictionary and write to disk.
     """
@@ -27,23 +34,23 @@ def set_params(param_list, param_keys, mean_params=None, scale_params=None, scr=
                 val = p[key] * s[key] + d[key]
                 params[atom_type][key] = val
 
-    mndo.set_params(params, scr=scr)
+    mndo.set_params(params, scr=scr, ignore_keys=ignore_keys)
 
     return
 
 
-def calculate(binary, filename, scr=None):
-    """
-    Collect sets of lines for each molecule as they become available
-    and then call a parser to extract the dictionary of properties.
+# def calculate(binary, filename, scr=None):
+#     """
+#     Collect sets of lines for each molecule as they become available
+#     and then call a parser to extract the dictionary of properties.
 
-    DEPRECIATED
+#     DEPRECIATED
 
-    """
-    props_list = mndo.calculate_file(filename, scr=scr, mndo_cmd=binary)
-    props_list = list(props_list) # NOTE that calculate_file returns an iterator
+#     """
+#     props_list = mndo.calculate_file(filename, scr=scr, mndo_cmd=binary)
+#     props_list = list(props_list)  # NOTE that calculate_file returns an iterator
 
-    return props_list
+#     return props_list
 
 
 def calculate_parallel(
@@ -99,10 +106,12 @@ def worker(*args, **kwargs):
 
     # Set params in worker dir
     param_list = args[0]
-    set_params(param_list, param_keys, mean_params, scale_params, scr=cwd)
+    set_params(
+        param_list, param_keys, mean_params, scale_params, scr=cwd,
+    )
 
     # Calculate properties
-    properties_list = mndo.calculate_file(filename, scr=cwd)
+    properties_list = mndo.calculate_file(filename, scr=cwd, mndo_cmd=binary)
 
     # NOTE JCK properties_list is a generator, so complete parsing on worker
     properties_list = list(properties_list)

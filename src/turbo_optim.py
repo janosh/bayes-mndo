@@ -15,7 +15,7 @@ from objective import penalty, penalty_parallel
 
 from chemhelp import mndo, units
 
-mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=110)
+mols_atoms, mols_coords, _, _, reference = load_data(query_size=1000, offset=0)
 ref_energies = reference["binding_energy"].values
 
 # Switch from Hartree to KCal/Mol
@@ -50,7 +50,8 @@ mndo.write_input_file(
 #     # with open("../parameters/parameters-mndo-mean.json") as f:
 #     start_params = json.loads(f.read())
 
-with open("../parameters/parameters-mndo-mean.json", "r") as f:
+with open("../parameters/parameters-opt-turbo.json", "r") as f:
+    # with open("../parameters/parameters-mndo-mean.json", "r") as f:
     raw_json = f.read()
     mean_params = json.loads(raw_json)
 
@@ -75,8 +76,10 @@ class MNDO:
     def __init__(self, kwargs):
         self.kwargs = kwargs
         self.dim = len(kwargs["param_keys"])
-        self.lb = -3 * np.ones(self.dim)
-        self.ub = 3 * np.ones(self.dim)
+        # self.lb = -3 * np.ones(self.dim)
+        # self.ub = 3 * np.ones(self.dim)
+        self.lb = -1 * np.ones(self.dim)
+        self.ub = 1 * np.ones(self.dim)
         assert isinstance(kwargs["n_procs"], int) and kwargs["n_procs"] > 0
         self.n_procs = kwargs["n_procs"]
 
@@ -120,7 +123,7 @@ turbo = Turbo1(
     lb=f.lb,  # Numpy array specifying lower bounds
     ub=f.ub,  # Numpy array specifying upper bounds
     n_init=20,  # Number of initial bounds from an Latin hypercube design
-    max_evals=1000,  # Maximum number of evaluations
+    max_evals=100,  # Maximum number of evaluations
     batch_size=10,  # How large batch size TuRBO uses
     verbose=True,  # Print information from each batch
     use_ard=True,  # Set to true if you want to use ARD for the GP kernel
@@ -160,7 +163,7 @@ for atomtype in end_params:
     for key in p:
         end_params[atomtype][key] = p[key] * s[key] + d[key]
 
-with open("../parameters/parameters-opt-turbo.json", "w") as f:
+with open("../parameters/parameters-opt-turbo-temp.json", "w") as f:
     json.dump(end_params, f)
 
 

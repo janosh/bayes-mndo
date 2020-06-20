@@ -10,7 +10,6 @@ import tensorflow as tf
 import pathlib
 from chemhelp import mndo, units
 
-# import mndo
 from data import load_data, prepare_data
 from objective import jacobian, jacobian_parallel, penalty
 from hmc_utils import sample_chain, trace_fn_nuts, get_nuts_kernel
@@ -69,11 +68,14 @@ param_values = [tf.random.truncated_normal([], stddev=1.0) for _ in param_keys]
 kwargs = {
     "param_keys": param_keys,
     "filename": filename,
+    "n_procs": n_procs,
+    "dh": dh,
     "ref_props": ref_energies,
     "mean_params": mean_params,
     "scale_params": scale_params,
-    "n_procs": 2,
     "binary": "/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary",
+    # "binary": "mndo",
+    "scr": scrdir,
 }
 
 # %%
@@ -82,8 +84,8 @@ def target_log_prob_fn(*param_vals):
     log_likelihood = -penalty(param_vals, **kwargs)
 
     def grad_fn(*dys):
-        # grad = jacobian(param_vals, dh=1e-5, **kwargs)
-        grad = jacobian_parallel(param_vals, dh=1e-5, **kwargs)
+        # grad = jacobian(param_vals, **kwargs)
+        grad = jacobian_parallel(param_vals, **kwargs)
         return grad.tolist()
 
     return log_likelihood, grad_fn
