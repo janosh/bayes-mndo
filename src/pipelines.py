@@ -77,9 +77,9 @@ def calculate_parallel(
 
     mapfunc = partial(worker, **worker_kwargs)
 
-    p = mp.Pool(n_procs)
-    # results = p.map(mapfunc, params_joblist)
-    results = list(tqdm(p.imap(mapfunc, params_joblist), total=len(params_joblist)))
+    with mp.Pool(n_procs) as p:
+        # results = p.map(mapfunc, params_joblist)
+        results = list(tqdm(p.imap(mapfunc, params_joblist), total=len(params_joblist)))
 
     return results
 

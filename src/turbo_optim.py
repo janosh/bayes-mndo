@@ -50,12 +50,12 @@ mndo.write_input_file(
 #     # with open("../parameters/parameters-mndo-mean.json") as f:
 #     start_params = json.loads(f.read())
 
-with open("../parameters/parameters-opt-turbo.json", "r") as f:
+with open("parameters/parameters-opt-turbo.json", "r") as f:
     # with open("../parameters/parameters-mndo-mean.json", "r") as f:
     raw_json = f.read()
     mean_params = json.loads(raw_json)
 
-with open("../parameters/parameters-mndo-std.json", "r") as f:
+with open("parameters/parameters-mndo-std.json", "r") as f:
     raw_json = f.read()
     scale_params = json.loads(raw_json)
 
@@ -123,7 +123,7 @@ turbo = Turbo1(
     lb=f.lb,  # Numpy array specifying lower bounds
     ub=f.ub,  # Numpy array specifying upper bounds
     n_init=20,  # Number of initial bounds from an Latin hypercube design
-    max_evals=100,  # Maximum number of evaluations
+    max_evals=50,  # Maximum number of evaluations
     batch_size=10,  # How large batch size TuRBO uses
     verbose=True,  # Print information from each batch
     use_ard=True,  # Set to true if you want to use ARD for the GP kernel
@@ -163,7 +163,7 @@ for atomtype in end_params:
     for key in p:
         end_params[atomtype][key] = p[key] * s[key] + d[key]
 
-with open("../parameters/parameters-opt-turbo-temp.json", "w") as f:
+with open("parameters/parameters-opt-turbo-temp.json", "w") as f:
     json.dump(end_params, f)
 
 

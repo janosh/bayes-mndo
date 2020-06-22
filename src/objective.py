@@ -5,7 +5,7 @@ import pipelines
 from chemhelp import mndo, units
 
 
-def calc_err(props_list, ref_props=None, alpha=0.03, **kwargs):
+def calc_err(props_list, ref_props=None, alpha=0.01, **kwargs):
     """
     Input:
         props_list: list of dictionaries of properties for each molecule
@@ -19,14 +19,10 @@ def calc_err(props_list, ref_props=None, alpha=0.03, **kwargs):
     diff = ref_props - calc_props
 
     err = np.sqrt(np.nanmean((diff ** 2)))
-    # Penalise the loss surface according to the number of non-converged
-    # calculations. Currently we have a relatively naive choice of penalty.
-    # it might be possible to design a smarter scheme
     n_failed = np.isnan(diff).sum()
-    # reg = 13 * 666.0 * n_failed
-    # reg = 13 * n_failed
 
     penalty = err * (1 + alpha) ** n_failed
+    # penalty = err + n_failed
 
     # print(f"Penalty: {penalty} (Error: {err} + Failed: {n_failed})")
 
@@ -49,7 +45,7 @@ def penalty(
     )
 
     # NOTE JCK props_list is a generator
-    props_list = mndo.calculate_file(filename, mndo_cmd=binary, scr=scr)
+    props_list = list(mndo.calculate_file(filename, scr=scr, mndo_cmd=binary))
 
     error = calc_err(props_list, **kwargs)
 
