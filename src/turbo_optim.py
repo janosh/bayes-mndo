@@ -10,7 +10,7 @@ import json
 
 from turbo import Turbo1
 from tqdm import tqdm
-from data import load_data, prepare_data
+from data import load_data, prepare_params
 from objective import penalty, penalty_parallel
 
 from chemhelp import mndo, units
@@ -46,20 +46,13 @@ mndo.write_input_file(
     read_params=True,
 )
 
-# with open("../parameters/parameters-pm3.json") as f:
-#     # with open("../parameters/parameters-mndo-mean.json") as f:
-#     start_params = json.loads(f.read())
-
-with open("parameters/parameters-opt-turbo.json", "r") as f:
-    # with open("../parameters/parameters-mndo-mean.json", "r") as f:
-    raw_json = f.read()
-    mean_params = json.loads(raw_json)
+with open("parameters/parameters-mndo-mean.json", "r") as f:
+    mean_params = json.loads(f.read())
 
 with open("parameters/parameters-mndo-std.json", "r") as f:
-    raw_json = f.read()
-    scale_params = json.loads(raw_json)
+    scale_params = json.loads(f.read())
 
-param_keys, _ = prepare_data(mols_atoms, mean_params)
+param_keys, _ = prepare_params(mols_atoms, mean_params)
 
 kwargs = {
     "param_keys": param_keys,
@@ -163,7 +156,7 @@ for atomtype in end_params:
     for key in p:
         end_params[atomtype][key] = p[key] * s[key] + d[key]
 
-with open("parameters/parameters-opt-turbo-temp.json", "w") as f:
+with open("parameters/parameters-opt-turbo.json", "w") as f:
     json.dump(end_params, f)
 
 

@@ -1,6 +1,7 @@
 import numpy as np
 from tqdm import trange
 
+import data
 import pipelines
 from chemhelp import mndo, units
 
@@ -40,7 +41,7 @@ def penalty(
         filename: file containing list of molecules for mndo calculation
     """
 
-    pipelines.set_params(
+    data.set_params(
         param_list, param_keys, mean_params, scale_params, scr=scr,
     )
 

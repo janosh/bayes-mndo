@@ -1,42 +1,12 @@
-import multiprocessing as mp
 import os
 import shutil
-from functools import partial
+import multiprocessing as mp
 
-import numpy as np
+from functools import partial
 from tqdm import tqdm
 
+import data
 from chemhelp import mndo
-
-
-def set_params(
-    param_list,
-    param_keys,
-    mean_params=None,
-    scale_params=None,
-    scr="./",
-    ignore_keys=[],
-):
-    """
-    Translate from RhysJanosh format to Jimmy dictionary and write to disk.
-    """
-
-    # Create new param dict
-    params = {key[0]: {} for key in param_keys}
-
-    for (atom_type, prop), param in zip(param_keys, param_list):
-        params[atom_type][prop] = param
-
-    if mean_params and scale_params:
-        for atom_type in params:
-            p, s, d = params[atom_type], scale_params[atom_type], mean_params[atom_type]
-            for key in p:
-                val = p[key] * s[key] + d[key]
-                params[atom_type][key] = val
-
-    mndo.set_params(params, scr=scr, ignore_keys=ignore_keys)
-
-    return
 
 
 # def calculate(binary, filename, scr=None):
@@ -77,6 +47,9 @@ def calculate_parallel(
 
     mapfunc = partial(worker, **worker_kwargs)
 
+    # NOTE generating multiple pools each iteration was leading to a memory leak
+    # NOTE using imap may be slower but done for development purposes to check
+    # it's working
     with mp.Pool(n_procs) as p:
         # results = p.map(mapfunc, params_joblist)
         results = list(tqdm(p.imap(mapfunc, params_joblist), total=len(params_joblist)))
@@ -106,7 +79,7 @@ def worker(*args, **kwargs):
 
     # Set params in worker dir
     param_list = args[0]
-    set_params(
+    data.set_params(
         param_list, param_keys, mean_params, scale_params, scr=cwd,
     )
 

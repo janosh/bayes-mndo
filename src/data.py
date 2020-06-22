@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import rmsd
 
+from chemhelp import mndo
+
 
 def load_data(
     data_dir="data/xyz/", ref_file="data/qm9-reference.csv", offset=0, query_size=100,
@@ -45,7 +47,7 @@ ignore_keys = [
 # fmt: on
 
 
-def prepare_data(mols_atoms, start_params, ignore_keys=ignore_keys):
+def prepare_params(mols_atoms, start_params, ignore_keys=ignore_keys):
     atoms = [np.unique(mol_atoms) for mol_atoms in mols_atoms]
     atoms = list(itertools.chain(*atoms))
     atoms = np.unique(atoms)
@@ -65,3 +67,33 @@ def prepare_data(mols_atoms, start_params, ignore_keys=ignore_keys):
             param_values.append(value)
 
     return param_keys, param_values
+
+
+def set_params(
+    param_list,
+    param_keys,
+    mean_params=None,
+    scale_params=None,
+    scr="./",
+    ignore_keys=ignore_keys,
+):
+    """
+    Translate from RhysJanosh format to Jimmy dictionary and write to disk.
+    """
+
+    # Create new param dict
+    params = {key[0]: {} for key in param_keys}
+
+    for (atom_type, prop), param in zip(param_keys, param_list):
+        params[atom_type][prop] = param
+
+    if mean_params and scale_params:
+        for atom_type in params:
+            p, s, d = params[atom_type], scale_params[atom_type], mean_params[atom_type]
+            for key in p:
+                val = p[key] * s[key] + d[key]
+                params[atom_type][key] = val
+
+    mndo.set_params(params, scr=scr, ignore_keys=ignore_keys)
+
+    return

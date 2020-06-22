@@ -5,7 +5,7 @@ import pathlib
 import numpy as np
 
 from chemhelp import mndo, units
-from data import load_data, prepare_data
+from data import load_data, prepare_params
 from objective import penalty
 
 mols_atoms, mols_coords, _, _, reference = load_data(query_size=5000, offset=210)
@@ -39,20 +39,18 @@ mndo.write_input_file(
     read_params=True,
 )
 
-with open("../parameters/parameters-opt-turbo.json", "r") as f:
+with open("parameters/parameters-opt-turbo.json", "r") as f:
     # with open("../parameters/parameters-opt-turbo-long.json", "r") as f:
     # with open("../parameters/parameters-mndo-mean.json") as f:
     test_params = json.loads(f.read())
 
-# with open("../parameters/parameters-mndo-mean.json", "r") as f:
-#     raw_json = f.read()
-#     mean_params = json.loads(raw_json)
+# with open("parameters/parameters-mndo-mean.json", "r") as f:
+#     mean_params = json.loads(f.read())
 
-# with open("../parameters/parameters-mndo-std.json", "r") as f:
-#     raw_json = f.read()
-#     scale_params = json.loads(raw_json)
+# with open("parameters/parameters-mndo-std.json", "r") as f:
+#     scale_params = json.loads(f.read())
 
-param_keys, test_params = prepare_data(mols_atoms, test_params)
+param_keys, test_params = prepare_params(mols_atoms, test_params)
 
 kwargs = {
     "param_keys": param_keys,

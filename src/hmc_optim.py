@@ -10,7 +10,7 @@ import tensorflow as tf
 import pathlib
 from chemhelp import mndo, units
 
-from data import load_data, prepare_data
+from data import load_data, prepare_params
 from objective import jacobian, jacobian_parallel, penalty
 from hmc_utils import sample_chain, trace_fn_nuts, get_nuts_kernel
 
@@ -48,21 +48,13 @@ mndo.write_input_file(
 )
 
 # %%
-# Find param_keys for an example set of parameters
-# with open("../parameters/parameters-mndo-mean.json") as file:
-#     start_params = json.loads(file.read())
+with open("parameters/parameters-mndo-mean.json", "r") as f:
+    mean_params = json.loads(f.read())
 
-with open("../parameters/parameters-mndo-mean.json", "r") as file:
-    raw_json = file.read()
-    mean_params = json.loads(raw_json)
+with open("parameters/parameters-mndo-std.json", "r") as f:
+    scale_params = json.loads(f.read())
 
-with open("../parameters/parameters-mndo-std.json", "r") as file:
-    raw_json = file.read()
-    scale_params = json.loads(raw_json)
-
-# param_keys, param_values = prepare_data(mols_atoms, start_params)
-param_keys, _ = prepare_data(mols_atoms, mean_params)
-# param_values = [tf.constant(x) for x in param_values]
+param_keys, _ = prepare_params(mols_atoms, mean_params)
 param_values = [tf.random.truncated_normal([], stddev=1.0) for _ in param_keys]
 
 kwargs = {
@@ -122,5 +114,5 @@ chain, trace, final_kernel_results = sample_chain(
     trace_fn=partial(trace_fn_nuts, summary_writer=summary_writer),
 )
 
-with open("../parameters/parameters-opt-hmc.json", "w") as f:
+with open("parameters/parameters-opt-hmc.json", "w") as f:
     json.dump([list(x) for x in chain], f)

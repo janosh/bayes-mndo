@@ -7,7 +7,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 from chemhelp import mndo, units
-from data import load_data, prepare_data
+from data import load_data, prepare_params
 from objective import jacobian_parallel, penalty
 
 mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=0)
@@ -41,21 +41,13 @@ mndo.write_input_file(
     read_params=True,
 )
 
-# with open("../parameters/parameters-pm3.json") as f:
-#     # with open("../parameters/parameters-mndo-mean.json") as f:
-#     start_params = json.loads(file.read())
+with open("parameters/parameters-mndo-mean.json", "r") as f:
+    mean_params = json.loads(f.read())
 
-with open("../parameters/parameters-opt-scipy.json", "r") as f:
-    # with open("../parameters/parameters-mndo-mean.json", "r") as f:
-    raw_json = f.read()
-    mean_params = json.loads(raw_json)
+with open("parameters/parameters-mndo-std.json", "r") as f:
+    scale_params = json.loads(f.read())
 
-with open("../parameters/parameters-mndo-std.json", "r") as f:
-    raw_json = f.read()
-    scale_params = json.loads(raw_json)
-
-# param_keys, param_values = prepare_data(mols_atoms, start_params)
-param_keys, _ = prepare_data(mols_atoms, mean_params)
+param_keys, _ = prepare_params(mols_atoms, mean_params)
 param_values = [np.random.normal() for _ in param_keys]
 # param_values = [0.0 for _ in param_keys]
 
@@ -101,7 +93,7 @@ for atomtype in end_params:
     for key in p:
         end_params[atomtype][key] = p[key] * s[key] + d[key]
 
-with open("../parameters/parameters-opt-scipy.json", "w") as f:
+with open("parameters/parameters-opt-scipy.json", "w") as f:
     json.dump(end_params, f)
 
 
