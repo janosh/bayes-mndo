@@ -12,10 +12,10 @@ def calc_err(props_list, ref_props=None, alpha=0.01, **kwargs):
         props_list: list of dictionaries of properties for each molecule
         ref_props: the target properties
     """
-    calc_props = np.array([props["energy"] for props in props_list])
+    calc_props = np.array([props["h"] for props in props_list])
 
     # Change the units from electron volt to kcal/mol
-    calc_props *= units.ev_to_kcalmol
+    # NOTE NOT FOR h calc_props *= units.ev_to_kcalmol
 
     diff = ref_props - calc_props
 

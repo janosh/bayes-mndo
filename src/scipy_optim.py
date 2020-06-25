@@ -70,6 +70,7 @@ kwargs = {
     "mean_params": mean_params,
     "scale_params": scale_params,
     "binary": root + "/mndo/mndo99_binary",
+    # "binary": "mndo",
     "scr": scrdir,
 }
 
