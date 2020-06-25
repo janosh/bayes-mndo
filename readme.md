@@ -1,12 +1,6 @@
-# fitting
+# Bayes MNDO
 
-This repo contains code and datasets for reparametrizing SQM methods.
-
-## License:
-
-All datasets (including input files, log files, csv files, xyz structure files, etc) are licensed under the CC0 1.0 Universal license.
-
-Scripts and other code is licensed under the MIT License.
+This repo contains code, datasets and binaries for reparametrizing MNDO. MNDO is a semi-empirical method for quantum calculations and stands for Modified Neglect of Diatomic Overlap.
 
 ## Environment
 
@@ -21,9 +15,9 @@ conda create -n mndo python=3.6 \
     pandas scikit-learn tqdm matplotlib pre-commit flake8 black notebook plotly
 ```
 
-To use `turbo_optim` you will also need the modified turbo package which can be installed with:
+To run `turbo_optim.py` you will also need the modified `TuRBO` package which can be installed with:
 
-```
+```sh
 conda activate mndo
 git clone https://github.com/CompRhys/TuRBO
 cd TuRBO
@@ -44,3 +38,15 @@ conda update --all \
 ## Code Health
 
 To install `git` pre-commit hooks for `black`, `flake8` and `isort`, run `pre-commit install` from the terminal. Recommended prior to contributing.
+
+## Troubleshooting
+
+If you're trying to run one of the optimization scripts (`scipy`, `turbo`, `hmc`) and getting non-zero exit codes like
+
+```sh
+subprocess.CalledProcessError: Command '/path/to/your/mndo99_binary < _tmp_molecules' returned non-zero exit status 127.
+```
+
+that means the binary file could be found. In that case, check your path and try an absolute rather than relative path.
+
+If you're getting the code 126, it's because the `mdno` command can be found but is not executable. In that case try `chmod +x /path/to/your/mndo99_binary`.
