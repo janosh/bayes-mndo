@@ -1,7 +1,7 @@
 import json
 import os
-from functools import partial
 import pathlib
+from functools import partial
 
 import numpy as np
 from scipy.optimize import minimize
@@ -59,6 +59,8 @@ def reporter(p):
     ps.append(p)
 
 
+root = os.path.abspath(__file__).split("/src", 1)[0]
+
 kwargs = {
     "param_keys": param_keys,
     "filename": filename,
@@ -67,8 +69,7 @@ kwargs = {
     "ref_props": ref_energies,
     "mean_params": mean_params,
     "scale_params": scale_params,
-    "binary": "/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary",
-    # "binary": "mndo",
+    "binary": root + "/mndo/mndo99_binary",
     "scr": scrdir,
 }
 

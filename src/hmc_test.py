@@ -1,22 +1,19 @@
 # %%
 import os
 from datetime import datetime
-import numpy as np
 from functools import partial
 
+import numpy as np
+import plotly.graph_objects as go
 import tensorflow as tf
 
-from hmc_utils import (
-    sample_chain,
-    trace_fn_nuts,
-    get_nuts_kernel,
-)
 from bo_bench import (
-    branin_hoo_params,
-    sample_branin_hoo,
     branin_hoo_factory,
     branin_hoo_fn,
+    branin_hoo_params,
+    sample_branin_hoo,
 )
+from hmc_utils import get_nuts_kernel, sample_chain, trace_fn_nuts
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -110,8 +107,6 @@ burnin, samples = chain[:n_adapt_steps], chain[n_adapt_steps:]
 
 
 # %%
-import plotly.graph_objects as go
-
 # Plot the Branin-Hoo surface
 xr = np.linspace(-5, 15, 21)
 yr = np.linspace(0, 10, 11)

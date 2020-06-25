@@ -1,13 +1,12 @@
+import multiprocessing as mp
 import os
 import shutil
-import multiprocessing as mp
-
 from functools import partial
+
 from tqdm import tqdm
 
 import data
 from chemhelp import mndo
-
 
 # def calculate(binary, filename, scr=None):
 #     """

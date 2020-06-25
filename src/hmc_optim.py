@@ -1,18 +1,17 @@
 # %%
 import json
 import os
+import pathlib
 from datetime import datetime
 from functools import partial
 
 import numpy as np
 import tensorflow as tf
 
-import pathlib
 from chemhelp import mndo, units
-
 from data import load_data, prepare_params
-from objective import jacobian, jacobian_parallel, penalty
-from hmc_utils import sample_chain, trace_fn_nuts, get_nuts_kernel
+from hmc_utils import get_nuts_kernel, sample_chain, trace_fn_nuts
+from objective import jacobian_parallel, penalty
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -57,6 +56,8 @@ with open("parameters/parameters-mndo-std.json", "r") as f:
 param_keys, _ = prepare_params(mols_atoms, mean_params)
 param_values = [tf.random.truncated_normal([], stddev=1.0) for _ in param_keys]
 
+root = os.path.abspath(__file__).split("/src", 1)[0]
+
 kwargs = {
     "param_keys": param_keys,
     "filename": filename,
@@ -65,8 +66,7 @@ kwargs = {
     "ref_props": ref_energies,
     "mean_params": mean_params,
     "scale_params": scale_params,
-    "binary": "/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary",
-    # "binary": "mndo",
+    "binary": root + "/mndo/mndo99_binary",
     "scr": scrdir,
 }
 

@@ -1,19 +1,18 @@
 # %%
-import pandas as pd
-import numpy as np
+import json
+import os
+import pathlib
+
 import matplotlib
 import matplotlib.pyplot as plt
-import pathlib
-import os
-
-import json
-
-from turbo import Turbo1
+import numpy as np
+import pandas as pd
 from tqdm import tqdm
-from data import load_data, prepare_params
-from objective import penalty, penalty_parallel
 
 from chemhelp import mndo, units
+from data import load_data, prepare_params
+from objective import penalty, penalty_parallel
+from turbo import Turbo1
 
 mols_atoms, mols_coords, _, _, reference = load_data(query_size=1000, offset=0)
 ref_energies = reference["binding_energy"].values
@@ -54,6 +53,8 @@ with open("parameters/parameters-mndo-std.json", "r") as f:
 
 param_keys, _ = prepare_params(mols_atoms, mean_params)
 
+root = os.path.abspath(__file__).split("/src", 1)[0]
+
 kwargs = {
     "param_keys": param_keys,
     "filename": filename,
@@ -61,7 +62,7 @@ kwargs = {
     "mean_params": mean_params,
     "scale_params": scale_params,
     "n_procs": 2,
-    "binary": "/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary",
+    "binary": root + "/mndo/mndo99_binary",
 }
 
 
