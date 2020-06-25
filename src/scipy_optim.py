@@ -1,3 +1,4 @@
+# %%
 import json
 import os
 import pathlib
@@ -10,6 +11,7 @@ from chemhelp import mndo, units
 from data import load_data, prepare_params
 from objective import jacobian_parallel, penalty
 
+# %%
 mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=0)
 ref_energies = reference["binding_energy"].values
 
@@ -41,10 +43,14 @@ mndo.write_input_file(
     read_params=True,
 )
 
-with open("parameters/parameters-mndo-mean.json", "r") as f:
+# %%
+root = os.path.abspath(__file__).split("/src", 1)[0]
+
+
+with open(root + "/parameters/parameters-mndo-mean.json", "r") as f:
     mean_params = json.loads(f.read())
 
-with open("parameters/parameters-mndo-std.json", "r") as f:
+with open(root + "/parameters/parameters-mndo-std.json", "r") as f:
     scale_params = json.loads(f.read())
 
 param_keys, _ = prepare_params(mols_atoms, mean_params)
@@ -53,13 +59,6 @@ param_values = [np.random.normal() for _ in param_keys]
 
 ps = [param_values]
 
-
-def reporter(p):
-    """Reporter function to capture intermediate states of optimization."""
-    ps.append(p)
-
-
-root = os.path.abspath(__file__).split("/src", 1)[0]
 
 kwargs = {
     "param_keys": param_keys,
@@ -70,10 +69,10 @@ kwargs = {
     "mean_params": mean_params,
     "scale_params": scale_params,
     "binary": root + "/mndo/mndo99_binary",
-    # "binary": "mndo",
     "scr": scrdir,
 }
 
+# %%
 res = minimize(
     partial(penalty, **kwargs),  # objective function
     param_values,  # initial condition
@@ -81,11 +80,12 @@ res = minimize(
     # jac=partial(jacobian, **kwargs),
     jac=partial(jacobian_parallel, **kwargs),
     options={"maxiter": 10, "disp": True},
-    callback=reporter,
+    callback=lambda p: ps.append(p),  # captures intermediate states of optimization
 )
 param_values = res.x
 
 
+# %%
 end_params = {atom_type: {} for atom_type, _ in param_keys}
 for (atom_type, prop), param in zip(param_keys, param_values):
     end_params[atom_type][prop] = param
@@ -95,7 +95,7 @@ for atomtype in end_params:
     for key in p:
         end_params[atomtype][key] = p[key] * s[key] + d[key]
 
-with open("parameters/parameters-opt-scipy.json", "w") as f:
+with open(root + "/parameters/parameters-opt-scipy.json", "w") as f:
     json.dump(end_params, f)
 
 
