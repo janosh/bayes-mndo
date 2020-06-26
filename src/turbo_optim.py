@@ -1,19 +1,18 @@
 # %%
+import argparse
 import json
 import os
 import pathlib
 import sys
-import argparse
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
-
 from chemhelp import mndo, units
 from data import load_data, prepare_params
 from objective import penalty, penalty_parallel
+from tqdm import tqdm
 from turbo import Turbo1, TurboM
 
 parser = argparse.ArgumentParser(description=("turbo optim"))
@@ -92,7 +91,6 @@ mndo.write_input_file(
 
 root = os.path.abspath(__file__).split("/src", 1)[0]
 
-# with open(root + "/parameters/parameters-opt-turbo.json", "r") as f:
 with open(root + "/parameters/parameters-mndo-mean.json", "r") as f:
     mean_params = json.loads(f.read())
 
@@ -114,16 +112,16 @@ kwargs = {
 
 
 class MNDO:
-    def __init__(self, kwargs):
+    def __init__(self, **kwargs):
+        assert kwargs["n_procs"] > 0, f"n_procs must be > 0, got {kwargs['n_procs']}"
         self.kwargs = kwargs
+        self.n_procs = kwargs["n_procs"]
         self.dim = len(kwargs["param_keys"])
         self.lb = -1 * np.ones(self.dim)
         self.ub = 1 * np.ones(self.dim)
-        assert isinstance(kwargs["n_procs"], int) and kwargs["n_procs"] > 0
-        self.n_procs = kwargs["n_procs"]
 
     def __call__(self, param_joblist):
-        assert len(param_joblist[0]) == self.dim
+        assert len(param_joblist[0]) == self.dim, "length mismatch"
         assert param_joblist[0].ndim == 1
         assert np.all([np.all(param_list <= self.ub) for param_list in param_joblist])
         assert np.all([np.all(param_list >= self.lb) for param_list in param_joblist])
@@ -137,17 +135,16 @@ class MNDO:
         return fX
 
 
-f = MNDO(kwargs)
+objective_fn = MNDO(**kwargs)
 
-# %%
 if args.n_trust > 1:
     turbo = TurboM(
-        f=f,  # Handle to objective function
-        lb=f.lb,  # Numpy array specifying lower bounds
-        ub=f.ub,  # Numpy array specifying upper bounds
+        f=objective_fn,  # Handle to objective function
+        lb=objective_fn.lb,  # numpy array specifying lower bounds
+        ub=objective_fn.ub,  # numpy array specifying upper bounds
         n_init=10,  # Number of initial bounds from an Symmetric Latin hypercube design
-        max_evals=args.max_evals,  # Maximum number of evaluations
-        n_trust_regions=args.n_trust,  # Number of trust regions
+        max_evals=1000,  # Maximum number of evaluations
+        n_trust_regions=5,  # Number of trust regions
         batch_size=10,  # How large batch size TuRBO uses
         verbose=True,  # Print information from each batch
         use_ard=True,  # Set to true if you want to use ARD for the GP kernel
@@ -159,11 +156,11 @@ if args.n_trust > 1:
     )
 else:
     turbo = Turbo1(
-        f=f,  # Handle to objective function
-        lb=f.lb,  # Numpy array specifying lower bounds
-        ub=f.ub,  # Numpy array specifying upper bounds
+        f=objective_fn,  # Handle to objective function
+        lb=objective_fn.lb,  # numpy array specifying lower bounds
+        ub=objective_fn.ub,  # numpy array specifying upper bounds
         n_init=20,  # Number of initial bounds from an Latin hypercube design
-        max_evals=args.max_evals,  # Maximum number of evaluations
+        max_evals=50,  # Maximum number of evaluations
         batch_size=10,  # How large batch size TuRBO uses
         verbose=True,  # Print information from each batch
         use_ard=True,  # Set to true if you want to use ARD for the GP kernel
@@ -221,6 +218,3 @@ if args.plot:
 
     plt.tight_layout()
     plt.show()
-
-
-# %%
