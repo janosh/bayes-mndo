@@ -4,12 +4,16 @@ import os
 import numpy as np
 import pandas as pd
 import rmsd
-
 from chemhelp import mndo
+
+root = os.path.abspath(__file__).split("/src", 1)[0]
 
 
 def load_data(
-    data_dir="data/xyz/", ref_file="data/qm9-reference.csv", offset=0, query_size=100,
+    data_dir=root + "/data/xyz/",
+    ref_file=root + "/data/qm9-reference.csv",
+    offset=0,
+    query_size=100,
 ):
     """
     Inputs:
@@ -42,7 +46,7 @@ def load_data(
 # fmt: off
 ignore_keys = [
     "DD2", "DD3", "PO1", "PO2", "PO3", "PO9", "HYF", "CORE",
-    "EISOL", "FN1", "FN2", "FN3", "GSCAL", #"BETAS", "ZS"
+    "EISOL", "FN1", "FN2", "FN3", "GSCAL",  # "BETAS", "ZS"
 ]
 # fmt: on
 
