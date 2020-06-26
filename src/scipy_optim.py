@@ -1,6 +1,8 @@
 # %%
 import json
 import os
+import sys
+import argparse
 import pathlib
 from functools import partial
 
@@ -12,14 +14,54 @@ from data import load_data, prepare_params
 from objective import jacobian_parallel, penalty
 
 # %%
-mols_atoms, mols_coords, _, _, reference = load_data(query_size=100, offset=0)
+parser = argparse.ArgumentParser(description=("cgcnn"))
+
+# data inputs
+parser.add_argument(
+    "--query", type=int, default=1000, metavar="INT", help="Number of input molecules",
+)
+parser.add_argument(
+    "--offset",
+    type=int,
+    default=0,
+    metavar="INT",
+    help="Offset for selecting input molecules",
+)
+parser.add_argument(
+    "--n-procs",
+    "--np",
+    type=int,
+    default=2,
+    metavar="INT",
+    help="Number of processes used for parallelisation",
+)
+parser.add_argument(
+    "--dh",
+    type=float,
+    default=1e-5,
+    metavar="FLOAT",
+    help="Size of perturbation for numerical gradients",
+)
+parser.add_argument(
+    "--max-iter",
+    type=int,
+    default=100,
+    metavar="INT",
+    help="Maximum number of optimizer iterations",
+)
+
+args = parser.parse_args(sys.argv[1:])
+
+mols_atoms, mols_coords, _, _, reference = load_data(
+    query_size=args.query, offset=args.offset
+)
 ref_energies = reference["binding_energy"].values
 
 # Switch from Hartree to KCal/Mol
 ref_energies *= units.hartree_to_kcalmol
 
-dh = 1e-5
-n_procs = 2
+dh = args.dh
+n_procs = args.n_procs
 method = "MNDO"
 
 # NOTE we probably can refactor to remove the duplication of input files
@@ -79,7 +121,7 @@ res = minimize(
     method="L-BFGS-B",
     # jac=partial(jacobian, **kwargs),
     jac=partial(jacobian_parallel, **kwargs),
-    options={"maxiter": 10, "disp": True},
+    options={"maxiter": args.max_iter, "disp": True},
     callback=lambda p: ps.append(p),  # captures intermediate states of optimization
 )
 param_values = res.x

@@ -59,6 +59,7 @@ kwargs = {
     "mean_params": None,
     "scale_params": None,
     "binary": "/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary",
+    "scr": scrdir,
 }
 
 

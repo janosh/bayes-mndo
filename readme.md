@@ -49,4 +49,4 @@ subprocess.CalledProcessError: Command '/path/to/your/mndo99_binary < _tmp_molec
 
 that means the binary file could be found. In that case, check your path and try an absolute rather than relative path.
 
-If you're getting the code 126, it's because the `mdno` command can be found but is not executable. In that case try `chmod +x /path/to/your/mndo99_binary`.
+If you're getting the code 126, it's because the `mndo` command can be found but is not executable. In that case try `chmod +x /path/to/your/mndo99_binary`.

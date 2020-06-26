@@ -2,6 +2,8 @@
 import json
 import os
 import pathlib
+import sys
+import argparse
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -12,16 +14,59 @@ from tqdm import tqdm
 from chemhelp import mndo, units
 from data import load_data, prepare_params
 from objective import penalty, penalty_parallel
-from turbo import Turbo1
+from turbo import Turbo1, TurboM
 
-mols_atoms, mols_coords, _, _, reference = load_data(query_size=1000, offset=0)
+parser = argparse.ArgumentParser(description=("turbo optim"))
+
+# data inputs
+parser.add_argument(
+    "--query", type=int, default=1000, metavar="INT", help="Number of input molecules",
+)
+parser.add_argument(
+    "--offset",
+    type=int,
+    default=0,
+    metavar="INT",
+    help="Offset for selecting input molecules",
+)
+parser.add_argument(
+    "--n-procs",
+    "--np",
+    type=int,
+    default=2,
+    metavar="INT",
+    help="Number of processes used for parallelisation",
+)
+parser.add_argument(
+    "--n-trust",
+    "--nt",
+    type=int,
+    default=5,
+    metavar="INT",
+    help="Number of trust regions for optimisation",
+)
+parser.add_argument(
+    "--max-evals",
+    type=int,
+    default=1000,
+    metavar="INT",
+    help="Maximum number of function evaluations",
+)
+parser.add_argument(
+    "--plot", action="store_true", help="plot the samples",
+)
+
+args = parser.parse_args(sys.argv[1:])
+
+mols_atoms, mols_coords, _, _, reference = load_data(
+    query_size=args.query, offset=args.offset
+)
 ref_energies = reference["binding_energy"].values
 
 # Switch from Hartree to KCal/Mol
 ref_energies *= units.hartree_to_kcalmol
 
-dh = 1e-5
-n_procs = 2
+n_procs = args.n_procs
 method = "MNDO"
 
 # NOTE we probably can refactor to remove the duplication of input files
@@ -45,15 +90,16 @@ mndo.write_input_file(
     read_params=True,
 )
 
-with open("parameters/parameters-mndo-mean.json", "r") as f:
+root = os.path.abspath(__file__).split("/src", 1)[0]
+
+# with open(root + "/parameters/parameters-opt-turbo.json", "r") as f:
+with open(root + "/parameters/parameters-mndo-mean.json", "r") as f:
     mean_params = json.loads(f.read())
 
-with open("parameters/parameters-mndo-std.json", "r") as f:
+with open(root + "/parameters/parameters-mndo-std.json", "r") as f:
     scale_params = json.loads(f.read())
 
 param_keys, _ = prepare_params(mols_atoms, mean_params)
-
-root = os.path.abspath(__file__).split("/src", 1)[0]
 
 kwargs = {
     "param_keys": param_keys,
@@ -61,8 +107,9 @@ kwargs = {
     "ref_props": ref_energies,
     "mean_params": mean_params,
     "scale_params": scale_params,
-    "n_procs": 2,
+    "n_procs": n_procs,
     "binary": root + "/mndo/mndo99_binary",
+    "scr": scrdir,
 }
 
 
@@ -70,8 +117,6 @@ class MNDO:
     def __init__(self, kwargs):
         self.kwargs = kwargs
         self.dim = len(kwargs["param_keys"])
-        # self.lb = -3 * np.ones(self.dim)
-        # self.ub = 3 * np.ones(self.dim)
         self.lb = -1 * np.ones(self.dim)
         self.ub = 1 * np.ones(self.dim)
         assert isinstance(kwargs["n_procs"], int) and kwargs["n_procs"] > 0
@@ -95,38 +140,39 @@ class MNDO:
 f = MNDO(kwargs)
 
 # %%
-# turbo = TurboM(
-#     f=f,  # Handle to objective function
-#     lb=f.lb,  # Numpy array specifying lower bounds
-#     ub=f.ub,  # Numpy array specifying upper bounds
-#     n_init=10,  # Number of initial bounds from an Symmetric Latin hypercube design
-#     max_evals=1000,  # Maximum number of evaluations
-#     n_trust_regions=5,  # Number of trust regions
-#     batch_size=10,  # How large batch size TuRBO uses
-#     verbose=True,  # Print information from each batch
-#     use_ard=True,  # Set to true if you want to use ARD for the GP kernel
-#     max_cholesky_size=2000,  # When we switch from Cholesky to Lanczos
-#     n_training_steps=50,  # Number of steps of ADAM to learn the hypers
-#     min_cuda=1024,  # Run on the CPU for small datasets
-#     device="cpu",  # "cpu" or "cuda"
-#     dtype="float64",  # float64 or float32
-# )
-
-turbo = Turbo1(
-    f=f,  # Handle to objective function
-    lb=f.lb,  # Numpy array specifying lower bounds
-    ub=f.ub,  # Numpy array specifying upper bounds
-    n_init=20,  # Number of initial bounds from an Latin hypercube design
-    max_evals=50,  # Maximum number of evaluations
-    batch_size=10,  # How large batch size TuRBO uses
-    verbose=True,  # Print information from each batch
-    use_ard=True,  # Set to true if you want to use ARD for the GP kernel
-    max_cholesky_size=2000,  # When we switch from Cholesky to Lanczos
-    n_training_steps=50,  # Number of steps of ADAM to learn the hypers
-    min_cuda=1024,  # Run on the CPU for small datasets
-    device="cpu",  # "cpu" or "cuda"
-    dtype="float64",  # float64 or float32
-)
+if args.n_trust > 1:
+    turbo = TurboM(
+        f=f,  # Handle to objective function
+        lb=f.lb,  # Numpy array specifying lower bounds
+        ub=f.ub,  # Numpy array specifying upper bounds
+        n_init=10,  # Number of initial bounds from an Symmetric Latin hypercube design
+        max_evals=args.max_evals,  # Maximum number of evaluations
+        n_trust_regions=args.n_trust,  # Number of trust regions
+        batch_size=10,  # How large batch size TuRBO uses
+        verbose=True,  # Print information from each batch
+        use_ard=True,  # Set to true if you want to use ARD for the GP kernel
+        max_cholesky_size=2000,  # When we switch from Cholesky to Lanczos
+        n_training_steps=50,  # Number of steps of ADAM to learn the hypers
+        min_cuda=1024,  # Run on the CPU for small datasets
+        device="cpu",  # "cpu" or "cuda"
+        dtype="float64",  # float64 or float32
+    )
+else:
+    turbo = Turbo1(
+        f=f,  # Handle to objective function
+        lb=f.lb,  # Numpy array specifying lower bounds
+        ub=f.ub,  # Numpy array specifying upper bounds
+        n_init=20,  # Number of initial bounds from an Latin hypercube design
+        max_evals=args.max_evals,  # Maximum number of evaluations
+        batch_size=10,  # How large batch size TuRBO uses
+        verbose=True,  # Print information from each batch
+        use_ard=True,  # Set to true if you want to use ARD for the GP kernel
+        max_cholesky_size=2000,  # When we switch from Cholesky to Lanczos
+        n_training_steps=50,  # Number of steps of ADAM to learn the hypers
+        min_cuda=1024,  # Run on the CPU for small datasets
+        device="cpu",  # "cpu" or "cuda"
+        dtype="float64",  # float64 or float32
+    )
 
 # %%
 
@@ -143,6 +189,7 @@ param_names = ["-".join(tup) for tup in param_keys]
 samples = np.hstack((fX, X))
 df = pd.DataFrame(samples, columns=["penalty"] + param_names)
 df = df.sort_values(by=["penalty"])
+# NOTE need to scale these samples at some point
 df.to_csv("turbo-samples.csv")
 
 ind_best = np.argmin(fX)
@@ -162,15 +209,18 @@ with open("parameters/parameters-opt-turbo.json", "w") as f:
 
 
 # %%
-fig = plt.figure(figsize=(7, 5))
-matplotlib.rcParams.update({"font.size": 16})
-plt.plot(fX, "b.", ms=10)  # Plot all evaluated points as blue dots
-plt.plot(np.minimum.accumulate(fX), "r", lw=3)  # Plot cumulative minimum as a red line
-plt.xlim([0, len(fX)])
-plt.title("Average Energy Deviation")
+if args.plot:
+    fig = plt.figure(figsize=(7, 5))
+    matplotlib.rcParams.update({"font.size": 16})
+    plt.plot(fX, "b.", ms=10)  # Plot all evaluated points as blue dots
+    plt.plot(
+        np.minimum.accumulate(fX), "r", lw=3
+    )  # Plot cumulative minimum as a red line
+    plt.xlim([0, len(fX)])
+    plt.title("Average Energy Deviation")
 
-plt.tight_layout()
-plt.show()
+    plt.tight_layout()
+    plt.show()
 
 
 # %%
