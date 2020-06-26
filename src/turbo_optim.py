@@ -53,6 +53,14 @@ parser.add_argument(
     help="Maximum number of function evaluations",
 )
 parser.add_argument(
+    "--batch-size",
+    "--nb",
+    type=int,
+    default=10,
+    metavar="INT",
+    help="Number of function evaluations per iteration",
+)
+parser.add_argument(
     "--plot", action="store_true", help="plot the samples",
 )
 
@@ -145,10 +153,10 @@ if args.n_trust > 1:
         f=f,  # Handle to objective function
         lb=f.lb,  # Numpy array specifying lower bounds
         ub=f.ub,  # Numpy array specifying upper bounds
-        n_init=10,  # Number of initial bounds from an Symmetric Latin hypercube design
+        n_init=args.batch_size,  # Number of initial bounds from an Symmetric Latin hypercube design
         max_evals=args.max_evals,  # Maximum number of evaluations
         n_trust_regions=args.n_trust,  # Number of trust regions
-        batch_size=10,  # How large batch size TuRBO uses
+        batch_size=args.batch_size,  # How large batch size TuRBO uses
         verbose=True,  # Print information from each batch
         use_ard=True,  # Set to true if you want to use ARD for the GP kernel
         max_cholesky_size=2000,  # When we switch from Cholesky to Lanczos
@@ -164,7 +172,7 @@ else:
         ub=f.ub,  # Numpy array specifying upper bounds
         n_init=20,  # Number of initial bounds from an Latin hypercube design
         max_evals=args.max_evals,  # Maximum number of evaluations
-        batch_size=10,  # How large batch size TuRBO uses
+        batch_size=args.batch_size,  # How large batch size TuRBO uses
         verbose=True,  # Print information from each batch
         use_ard=True,  # Set to true if you want to use ARD for the GP kernel
         max_cholesky_size=2000,  # When we switch from Cholesky to Lanczos

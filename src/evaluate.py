@@ -39,16 +39,12 @@ mndo.write_input_file(
     read_params=True,
 )
 
-with open("parameters/parameters-opt-turbo.json", "r") as f:
-    # with open("../parameters/parameters-opt-turbo-long.json", "r") as f:
-    # with open("../parameters/parameters-mndo-mean.json") as f:
+root = os.path.abspath(__file__).split("/src", 1)[0]
+
+with open(root + "/parameters/parameters-opt-turbo.json", "r") as f:
+    # with open(root + "/parameters/parameters-opt-turbo-long.json", "r") as f:
+    # with open(root + "/parameters/parameters-mndo-mean.json") as f:
     test_params = json.loads(f.read())
-
-# with open("parameters/parameters-mndo-mean.json", "r") as f:
-#     mean_params = json.loads(f.read())
-
-# with open("parameters/parameters-mndo-std.json", "r") as f:
-#     scale_params = json.loads(f.read())
 
 param_keys, test_params = prepare_params(mols_atoms, test_params)
 
@@ -58,7 +54,7 @@ kwargs = {
     "ref_props": ref_energies,
     "mean_params": None,
     "scale_params": None,
-    "binary": "/home/reag2/PhD/second-year/bayes-mndo/mndo/mndo99_binary",
+    "binary": root + "/mndo/mndo99_binary",
     "scr": scrdir,
 }
 
