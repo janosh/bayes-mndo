@@ -9,10 +9,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
+
 from chemhelp import mndo, units
 from data import load_data, prepare_params
 from objective import penalty, penalty_parallel
-from tqdm import tqdm
 from turbo import Turbo1, TurboM
 
 parser = argparse.ArgumentParser(description=("turbo optim"))

@@ -7,10 +7,11 @@ import sys
 from functools import partial
 
 import numpy as np
+from scipy.optimize import minimize
+
 from chemhelp import mndo, units
 from data import load_data, prepare_params
 from objective import jacobian_parallel, penalty
-from scipy.optimize import minimize
 
 # %%
 parser = argparse.ArgumentParser(description=("cgcnn"))

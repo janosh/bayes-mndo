@@ -3,7 +3,7 @@ from tqdm import trange
 
 import data
 import pipelines
-from chemhelp import mndo, units
+from chemhelp import mndo
 
 
 def calc_err(props_list, ref_props=None, alpha=0.01, **kwargs):
