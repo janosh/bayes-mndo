@@ -3,9 +3,13 @@ import os
 from datetime import datetime
 from functools import partial
 
+import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
 import tensorflow as tf
+from matplotlib import cm
+# Axes3D import has side effects, it enables using projection='3d' in add_subplot
+from mpl_toolkits.mplot3d import Axes3D  # noqa
 
 from bo_bench import (
     branin_hoo_factory,
@@ -83,7 +87,8 @@ def target_log_prob_fn_autodiff(param_vals):
 # Casting step_size and init_state needed due to TFP bug
 # https://github.com/tensorflow/probability/issues/904#issuecomment-624272845
 step_size = tf.cast(1e-3, tf.float64)
-init_state = [tf.constant(v * 1.5, tf.float64) for v in branin_hoo_params.values()]
+bh_params_2x = [2 * param for param in branin_hoo_params.values()]
+init_state = tf.constant(bh_params_2x, tf.float64)
 n_adapt_steps = 200
 
 # with tf.GradientTape() as tape:
@@ -110,7 +115,8 @@ burnin, samples = chain[:n_adapt_steps], chain[n_adapt_steps:]
 # Plot the Branin-Hoo surface
 xr = np.linspace(-5, 15, 21)
 yr = np.linspace(0, 10, 11)
-domain = np.stack(np.meshgrid(xr, yr), -1).reshape(-1, 2).T
+XY = np.meshgrid(xr, yr)
+domain = np.stack(XY, -1).reshape(-1, 2).T
 
 plot_funcs = [
     [branin_hoo_fn, "Electric"],
@@ -127,3 +133,14 @@ samples_plot = go.Scatter3d(x=xy[0], y=xy[1], z=z_true, mode="markers")
 fig = go.Figure(data=[*surfaces, samples_plot])
 title = "Branin-Hoo (bottom), initial surface (top), HMC final surface (middle)"
 fig.update_layout(height=700, title_text=title)
+
+
+# %%
+fig = plt.figure(figsize=[12, 8])
+ax = fig.add_subplot(111, projection="3d")
+ax.scatter(*xy, z_true, s=100, alpha=1, c="k")
+ax.plot_surface(*XY, branin_hoo_fn(XY), alpha=0.7, cmap=cm.Greens)
+ax.plot_surface(*XY, branin_hoo_factory(*bh_params_2x)(XY), alpha=0.7, cmap=cm.Blues)
+ax.plot_surface(*XY, branin_hoo_factory(*chain[-1])(XY), alpha=0.7, cmap=cm.viridis)
+
+plt.savefig("branin-hoo-hmc-test.pdf", bbox_inches="tight")
