@@ -1,19 +1,14 @@
-
 import copy
-import pytest
-from pathlib import Path
-import os
 import glob
 import json
+import os
+from pathlib import Path
 
+import pytest
 import rmsd
-
 from context import src
 
-from src.chemhelp import mndo
-from src.chemhelp import misc
-from src.chemhelp import cheminfo
-from src.chemhelp import units
+from src.chemhelp import cheminfo, misc, mndo, units
 
 SCRDIR = "_tmp_test"
 
@@ -67,21 +62,21 @@ def test_set_param():
     # Set parameters
     mndo.set_params(parameters, scr=scrdir)
 
-    atoms = ['O','N','C','N','N','H']
+    atoms = ["O", "N", "C", "N", "N", "H"]
 
     coords = [
-        [ -0.0593325887, 1.2684201211  , 0.0095178503  ],
-        [ 1.1946293712 , 1.771776509   , 0.0001229152  ],
-        [ 1.9590217387 , 0.7210517427  , -0.0128069641 ],
-        [ 1.2270421979 , -0.4479406483 , -0.0121559722 ],
-        [ 0.0119302176 , -0.1246338293 , 0.0012973737  ],
-        [ 3.0355546734 , 0.7552313348  , -0.0229864829 ],
+        [-0.0593325887, 1.2684201211, 0.0095178503],
+        [1.1946293712, 1.771776509, 0.0001229152],
+        [1.9590217387, 0.7210517427, -0.0128069641],
+        [1.2270421979, -0.4479406483, -0.0121559722],
+        [0.0119302176, -0.1246338293, 0.0012973737],
+        [3.0355546734, 0.7552313348, -0.0229864829],
     ]
 
     # Create mndo input format
     inptxt = mndo.get_input(atoms, coords, 0, title="title", read_params=True)
 
-    with open(str(Path(scrdir).joinpath(filename)), 'w') as f:
+    with open(str(Path(scrdir).joinpath(filename)), "w") as f:
         f.write(inptxt)
 
     calculations = mndo.run_mndo_file(filename, scr=scrdir)
@@ -117,15 +112,18 @@ def test_water():
 nextmol=-1
 TITLE {title}"""
 
-
     # Set input file
-    inptxt = mndo.get_input(atoms, coord, charge,
+    inptxt = mndo.get_input(
+        atoms,
+        coord,
+        charge,
         title="water optimize example",
         read_params=False,
         header=header,
-        optimize=True)
+        optimize=True,
+    )
 
-    with open(str(Path(scrdir).joinpath(filename)), 'w') as f:
+    with open(str(Path(scrdir).joinpath(filename)), "w") as f:
         f.write(inptxt)
 
     # Run mndo
@@ -135,7 +133,7 @@ TITLE {title}"""
     lines = calculations[0]
     properties = mndo.get_properties(lines)
 
-    water_atomization = properties["energy"]*units.ev_to_kcalmol
+    water_atomization = properties["energy"] * units.ev_to_kcalmol
 
     assert pytest.approx(-224.11087077483552, rel=1e-2) == water_atomization
 
@@ -148,9 +146,7 @@ def test_params_error():
     filename = "_tmp_multimol"
     method = "MNDO"
 
-    options = {
-        "mndo_cmd": "mndo" # set mndo path
-    }
+    options = {"mndo_cmd": "mndo"}  # set mndo path
 
     clean_scratch(scrdir)
 
@@ -164,7 +160,8 @@ def test_params_error():
         mols_charges,
         mols_names,
         method,
-        os.path.join(scrdir, filename))
+        os.path.join(scrdir, filename),
+    )
 
     # Set parameters
     with open("parameters/parameters-mndo-mean.json", "r") as file:
@@ -194,9 +191,7 @@ def test_params_parallel():
     filename = "_tmp_multimol"
     method = "MNDO"
 
-    options = {
-        "mndo_cmd": "mndo" # set mndo path
-    }
+    options = {"mndo_cmd": "mndo"}  # set mndo path
 
     # Prepare some parameters
     with open("parameters/parameters-mndo-mean.json", "r") as file:
@@ -220,9 +215,12 @@ def test_params_parallel():
         mols_charges,
         mols_names,
         method,
-        os.path.join(scrdir, filename))
+        os.path.join(scrdir, filename),
+    )
 
-    results = mndo.calculate_parameters(filename, parameter_list, scr=scrdir, n_procs=n_procs)
+    results = mndo.calculate_parameters(
+        filename, parameter_list, scr=scrdir, n_procs=n_procs
+    )
 
     for result in results:
 

@@ -9,18 +9,22 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
-
 from chemhelp import mndo, units
+from tqdm import tqdm
+from turbo import Turbo1, TurboM
+
 from data import load_data, prepare_params
 from objective import penalty, penalty_parallel
-from turbo import Turbo1, TurboM
 
 parser = argparse.ArgumentParser(description=("turbo optim"))
 
 # data inputs
 parser.add_argument(
-    "--query", type=int, default=1000, metavar="INT", help="Number of input molecules",
+    "--query",
+    type=int,
+    default=1000,
+    metavar="INT",
+    help="Number of input molecules",
 )
 parser.add_argument(
     "--offset",
@@ -61,7 +65,9 @@ parser.add_argument(
     help="Number of function evaluations per iteration",
 )
 parser.add_argument(
-    "--plot", action="store_true", help="plot the samples",
+    "--plot",
+    action="store_true",
+    help="plot the samples",
 )
 
 args = parser.parse_args(sys.argv[1:])
