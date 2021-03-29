@@ -157,7 +157,7 @@ if args.n_trust > 1:
         f=objective_fn,  # Handle to objective function
         lb=objective_fn.lb,  # numpy array specifying lower bounds
         ub=objective_fn.ub,  # numpy array specifying upper bounds
-        n_init=args.batch_size,  # Number of initial bounds from an Symmetric Latin hypercube design
+        n_init=args.batch_size,  # initial bounds count from Symmetric Latin hypercube design
         max_evals=args.max_evals,  # Maximum number of evaluations
         n_trust_regions=args.n_trust,  # Number of trust regions
         batch_size=args.batch_size,  # How large batch size TuRBO uses

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 import rmsd
-from context import src
 
 from src.chemhelp import cheminfo, misc, mndo, units
 
@@ -23,12 +22,9 @@ def clean_scratch(dirname):
 
 def setup_multi_xyz():
 
-    values = []
-
     atoms_list = []
     coord_list = []
     charg_list = []
-    title_list = []
 
     filenames = range(1, 8)
     filenames = [f"{x:06d}" for x in filenames]
@@ -82,7 +78,6 @@ def test_set_param():
     calculations = mndo.run_mndo_file(filename, scr=scrdir)
     calculations = list(calculations)
     lines = calculations[0]
-    properties = mndo.get_properties(lines)
     idx = misc.get_index(lines, "USS")
     line = lines[idx]
     line = line.split()
@@ -95,8 +90,6 @@ def test_set_param():
 
 
 def test_water():
-
-    smi = "O"
 
     scrdir = "_tmp_test"
     filename = "_tmp_water"
@@ -190,8 +183,6 @@ def test_params_parallel():
     scrdir = SCRDIR
     filename = "_tmp_multimol"
     method = "MNDO"
-
-    options = {"mndo_cmd": "mndo"}  # set mndo path
 
     # Prepare some parameters
     with open("parameters/parameters-mndo-mean.json", "r") as file:
