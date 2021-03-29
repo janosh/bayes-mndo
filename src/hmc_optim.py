@@ -7,8 +7,8 @@ from functools import partial
 
 import numpy as np
 import tensorflow as tf
-
 from chemhelp import mndo, units
+
 from data import load_data, prepare_params
 from hmc_utils import get_nuts_kernel, sample_chain, trace_fn_nuts
 from objective import jacobian_parallel, penalty
@@ -69,6 +69,7 @@ kwargs = {
     "binary": root + "/mndo/mndo99_binary",
     "scr": scrdir,
 }
+
 
 # %%
 @tf.custom_gradient

@@ -19,8 +19,7 @@ branin_hoo_params = dict(
 
 
 def branin_hoo_fn(x):
-    """The Branin-Hoo function is a popular benchmark for Bayesian optimization.
-    """
+    """The Branin-Hoo function is a popular benchmark for Bayesian optimization."""
     z = branin_hoo_factory(**branin_hoo_params)(x)
     return z
 

@@ -3,8 +3,8 @@ import os
 import pathlib
 
 import numpy as np
-
 from chemhelp import mndo, units
+
 from data import load_data, prepare_params
 from objective import penalty
 

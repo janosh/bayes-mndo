@@ -1,9 +1,9 @@
 import numpy as np
+from chemhelp import mndo
 from tqdm import trange
 
 import data
 import pipelines
-from chemhelp import mndo
 
 
 def calc_err(props_list, ref_props=None, alpha=0.01, **kwargs):
@@ -42,7 +42,11 @@ def penalty(
     """
 
     data.set_params(
-        param_list, param_keys, mean_params, scale_params, scr=scr,
+        param_list,
+        param_keys,
+        mean_params,
+        scale_params,
+        scr=scr,
     )
 
     # NOTE JCK props_list is a generator

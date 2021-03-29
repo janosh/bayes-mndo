@@ -3,10 +3,10 @@ import os
 import shutil
 from functools import partial
 
+from chemhelp import mndo
 from tqdm import tqdm
 
 import data
-from chemhelp import mndo
 
 # def calculate(binary, filename, scr=None):
 #     """
@@ -57,8 +57,7 @@ def calculate_parallel(
 
 
 def worker(*args, **kwargs):
-    """
-    """
+    """"""
     scr = kwargs["scr"]
     filename = kwargs["filename"]
     param_keys = kwargs["param_keys"]
@@ -79,7 +78,11 @@ def worker(*args, **kwargs):
     # Set params in worker dir
     param_list = args[0]
     data.set_params(
-        param_list, param_keys, mean_params, scale_params, scr=cwd,
+        param_list,
+        param_keys,
+        mean_params,
+        scale_params,
+        scr=cwd,
     )
 
     # Calculate properties

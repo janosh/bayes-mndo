@@ -7,9 +7,9 @@ import sys
 from functools import partial
 
 import numpy as np
+from chemhelp import mndo, units
 from scipy.optimize import minimize
 
-from chemhelp import mndo, units
 from data import load_data, prepare_params
 from objective import jacobian_parallel, penalty
 
@@ -18,7 +18,11 @@ parser = argparse.ArgumentParser(description=("cgcnn"))
 
 # data inputs
 parser.add_argument(
-    "--query", type=int, default=1000, metavar="INT", help="Number of input molecules",
+    "--query",
+    type=int,
+    default=1000,
+    metavar="INT",
+    help="Number of input molecules",
 )
 parser.add_argument(
     "--offset",
