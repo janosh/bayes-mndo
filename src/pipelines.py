@@ -57,7 +57,7 @@ def calculate_parallel(
 
 
 def worker(*args, **kwargs):
-    """"""
+    """ """
     scr = kwargs["scr"]
     filename = kwargs["filename"]
     param_keys = kwargs["param_keys"]
