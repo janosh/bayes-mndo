@@ -157,7 +157,7 @@ def test_params_error():
     )
 
     # Set parameters
-    with open("parameters/parameters-mndo-mean.json", "r") as file:
+    with open("parameters/parameters-mndo-mean.json") as file:
         raw_json = file.read()
         mean_params = json.loads(raw_json)
 
@@ -185,7 +185,7 @@ def test_params_parallel():
     method = "MNDO"
 
     # Prepare some parameters
-    with open("parameters/parameters-mndo-mean.json", "r") as file:
+    with open("parameters/parameters-mndo-mean.json") as file:
         raw_json = file.read()
         mean_params = json.loads(raw_json)
 

@@ -19,7 +19,7 @@ def calc_err(props_list, ref_props=None, alpha=0.01, **kwargs):
 
     diff = ref_props - calc_props
 
-    err = np.sqrt(np.nanmean((diff ** 2)))
+    err = np.sqrt(np.nanmean(diff ** 2))
     n_failed = np.isnan(diff).sum()
 
     penalty = err * (1 + alpha) ** n_failed

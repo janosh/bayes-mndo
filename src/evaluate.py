@@ -41,7 +41,7 @@ mndo.write_input_file(
 
 root = os.path.abspath(__file__).split("/src", 1)[0]
 
-with open(root + "/parameters/parameters-opt-turbo.json", "r") as f:
+with open(root + "/parameters/parameters-opt-turbo.json") as f:
     # with open(root + "/parameters/parameters-opt-turbo-long.json", "r") as f:
     # with open(root + "/parameters/parameters-mndo-mean.json") as f:
     test_params = json.loads(f.read())
