@@ -8,8 +8,6 @@ import numpy as np
 import plotly.graph_objects as go
 import tensorflow as tf
 from matplotlib import cm
-
-# Axes3D import has side effects, it enables using projection='3d' in add_subplot
 from mpl_toolkits.mplot3d import Axes3D  # noqa
 
 from bo_bench import (
