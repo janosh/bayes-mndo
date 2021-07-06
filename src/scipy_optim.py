@@ -93,10 +93,10 @@ mndo.write_input_file(
 root = os.path.abspath(__file__).split("/src", 1)[0]
 
 
-with open(root + "/parameters/parameters-mndo-mean.json", "r") as f:
+with open(root + "/parameters/parameters-mndo-mean.json") as f:
     mean_params = json.loads(f.read())
 
-with open(root + "/parameters/parameters-mndo-std.json", "r") as f:
+with open(root + "/parameters/parameters-mndo-std.json") as f:
     scale_params = json.loads(f.read())
 
 param_keys, _ = prepare_params(mols_atoms, mean_params)
